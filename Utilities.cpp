@@ -4,9 +4,9 @@ std::vector<Block2D> Utilities::CreateBlocks(int width, int height)
 {
 	std::vector<Block2D> tempBlocks;
 
-	for(size_t i = 0; i < 200; i++)
+	for(size_t i = 0; i < 50; i++)
 	{
-		for(size_t j = 0; j < 200; j++)
+		for(size_t j = 0; j < 50; j++)
 		{
 			tempBlocks.push_back(Block2D((width * i) + width / 2, (height * j) + height / 2, width, height, RandomGenerator::Generate()));
 		}

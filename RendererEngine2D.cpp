@@ -13,6 +13,24 @@ void RendererEngine2D::Init(HWND windowHandle)
 {
 	HRESULT hr = S_OK;
 
+	RECT renderRect;
+	GetClientRect(windowHandle, &renderRect);
+
+	D2D1_SIZE_U renderSize = D2D1::SizeU(renderRect.right, renderRect.bottom);
+
+	// Overwrite vsync
+	renderOverrides = D2D1::HwndRenderTargetProperties(
+		windowHandle,
+		renderSize,
+		D2D1_PRESENT_OPTIONS_IMMEDIATELY
+	);
+
+	hr = renderTargetFactory->CreateHwndRenderTarget(
+		D2D1::RenderTargetProperties(),
+		renderOverrides,
+		&renderTarget
+	);
+
 	// Micro optimization to not re-create every frame
 	if(pBrush == nullptr)
 	{
