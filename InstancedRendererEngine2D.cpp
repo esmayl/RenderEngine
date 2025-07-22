@@ -62,6 +62,9 @@ void InstancedRendererEngine2D::Init(HWND windowHandle)
 	vp.TopLeftX = 0;
 	vp.TopLeftY = 0;
 	pDeviceContext->RSSetViewports(1, &vp);
+
+	CreateShaders();
+	CreateBuffers();
 }
 
 void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
@@ -109,4 +112,152 @@ void InstancedRendererEngine2D::CountFps()
 
 void InstancedRendererEngine2D::OnShutdown()
 {
+}
+
+
+void InstancedRendererEngine2D::CreateShaders()
+{
+	// --- Define Shaders ---
+	const char* vsCode =
+		"float4 main(float3 pos : POSITION) : SV_POSITION {"
+		"    return float4(pos, 1.0f);"
+		"}";
+
+	const char* psCode =
+		"float4 main() : SV_TARGET {"
+		"    return float4(1.0f, 1.0f, 1.0f, 1.0f);" // White color
+		"}";
+
+	// --- Compile and Create Shaders ---
+	ID3DBlob* vsBlob = nullptr;
+	ID3DBlob* psBlob = nullptr;
+	ID3DBlob* errorBlob = nullptr;
+
+	HRESULT hr = D3DCompile(vsCode, strlen(vsCode), nullptr, nullptr, nullptr, "main", "vs_5_0", 0, 0, &vsBlob, &errorBlob);
+	if(hr < 0) 
+	{ 
+		if(&errorBlob)
+		{
+			(errorBlob)->Release();
+			errorBlob = NULL;
+		}
+
+		return; 
+	}
+
+	hr = D3DCompile(psCode, strlen(psCode), nullptr, nullptr, nullptr, "main", "ps_5_0", 0, 0, &psBlob, &errorBlob);
+	if(hr < 0)
+	{
+		if(&vsBlob)
+		{
+			(vsBlob)->Release();
+			vsBlob = NULL;
+		}
+
+		if(&errorBlob)
+		{
+			(errorBlob)->Release();
+			errorBlob = NULL;
+		}
+
+		return;
+	}
+
+	hr = pDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &pVertexShader);
+	if(hr < 0)
+	{
+		if(&vsBlob)
+		{
+			(vsBlob)->Release();
+			vsBlob = NULL;
+		}
+
+		if(&psBlob)
+		{
+			(psBlob)->Release();
+			psBlob = NULL;
+		}
+
+		return;
+	}
+
+	hr = pDevice->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &pPixelShader);
+	if(hr < 0)
+	{
+		if(&vsBlob)
+		{
+			(vsBlob)->Release();
+			vsBlob = NULL;
+		}
+
+		if(&psBlob)
+		{
+			(psBlob)->Release();
+			psBlob = NULL;
+		}
+
+		return;
+	}
+
+	// Create a POSITION variable that is 32 bits per rgb value and is per vertex
+	D3D11_INPUT_ELEMENT_DESC layout[] = {
+		D3D11_INPUT_ELEMENT_DESC{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+	};
+	hr = pDevice->CreateInputLayout(layout, ARRAYSIZE(layout), vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &pInputLayout);
+
+	if(&vsBlob)
+	{
+		(vsBlob)->Release();
+		vsBlob = NULL;
+	}
+
+	if(&psBlob)
+	{
+		(psBlob)->Release();
+		psBlob = NULL;
+	}
+
+	if(hr < 0)
+	{
+		return;
+	}
+
+
+}
+
+void InstancedRendererEngine2D::CreateBuffers()
+{
+	// Square
+	Vertex vertices[] = {
+		{ -0.5f,  0.5f, 0.0f },
+		{  0.5f, 0.5f, 0.0f },
+		{ -0.5f, -0.5f, 0.0f },
+		{  0.5f, 0.0f, 0.0f }
+	};
+
+	// Create vertex buffer
+	D3D11_BUFFER_DESC bd = {};
+	bd.Usage = D3D11_USAGE_DEFAULT;
+	bd.ByteWidth = sizeof(vertices);
+	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+
+	D3D11_SUBRESOURCE_DATA sd = {};
+	sd.pSysMem = vertices;
+	
+	HRESULT hr = pDevice->CreateBuffer(&bd, &sd, &pVertexBuffer);
+	if(FAILED(hr)) return;
+
+	// Create index buffer
+	UINT indices[] = 
+	{ 
+		0, 1, 2, // first triangle
+		2, 1, 3	 // second triangle
+	};
+
+	bd.ByteWidth = sizeof(indices);
+	bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	sd.pSysMem = indices;
+	
+	hr = pDevice->CreateBuffer(&bd, &sd, &pIndexBuffer);
+	if(FAILED(hr)) return;
 }

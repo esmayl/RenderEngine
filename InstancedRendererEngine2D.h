@@ -4,13 +4,16 @@
 #include <vector>
 #include <d3d11.h>
 #include <dxgi.h>
+#include <d3dcompiler.h> // Needed for compiling shaders
 
 #include "Utilities.h"
 #include "Block2D.h"
 #include "BaseRenderer.h"
+#include "Vertex.h"
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
+#pragma comment(lib, "d3dcompiler.lib")
 
 class InstancedRendererEngine2D : public BaseRenderer
 {
@@ -31,10 +34,19 @@ class InstancedRendererEngine2D : public BaseRenderer
 
 		std::vector<Block2D> blocks;
 
-		IDXGISwapChain* pSwapChain;
 		ID3D11Device* pDevice;
 		ID3D11DeviceContext* pDeviceContext;
+		IDXGISwapChain* pSwapChain;
 		ID3D11RenderTargetView* renderTargetView;
-		ID3D11Texture2D* pBackBuffer;
+		ID3D11Texture2D* pBackBuffer; // Maybe not needed?
 
+		// for rendering triangles
+		ID3D11Buffer* pVertexBuffer;
+		ID3D11Buffer* pIndexBuffer;
+		ID3D11VertexShader* pVertexShader;
+		ID3D11PixelShader* pPixelShader;
+		ID3D11InputLayout* pInputLayout; // Used to define input variables for the shaders
+
+		void CreateShaders();
+		void CreateBuffers();
 };
