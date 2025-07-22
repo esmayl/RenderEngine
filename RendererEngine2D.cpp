@@ -67,24 +67,7 @@ HRESULT RendererEngine2D::SetupRenderTarget(HWND windowHandle)
 
 void RendererEngine2D::OnPaint(HWND windowHandle)
 {
-	auto frameStartTime = std::chrono::steady_clock::now();
-
-	auto currentTime = std::chrono::steady_clock::now();
-	deltaTime = std::chrono::duration<double>(currentTime - lastFrameTime).count();
-	lastFrameTime = currentTime;
-
-	timeSinceFPSUpdate += deltaTime;
-	framesSinceFPSUpdate++;
-
-	if(timeSinceFPSUpdate >= 1.0)
-	{
-		double currentFPS = framesSinceFPSUpdate / timeSinceFPSUpdate;
-		swprintf_s(fpsText, L"FPS: %.0f", currentFPS); // Update the global text buffer
-
-		// Reset for the next second
-		timeSinceFPSUpdate = 0.0;
-		framesSinceFPSUpdate = 0;
-	}
+	CountFps();
 
 	HRESULT hr = SetupRenderTarget(windowHandle);
 
@@ -161,12 +144,46 @@ void RendererEngine2D::OnPaint(HWND windowHandle)
 	}
 }
 
+void RendererEngine2D::CountFps()
+{
+	auto frameStartTime = std::chrono::steady_clock::now();
+
+	auto currentTime = std::chrono::steady_clock::now();
+	deltaTime = std::chrono::duration<double>(currentTime - lastFrameTime).count();
+	lastFrameTime = currentTime;
+
+	timeSinceFPSUpdate += deltaTime;
+	framesSinceFPSUpdate++;
+
+	if(timeSinceFPSUpdate >= 1.0)
+	{
+		double currentFPS = framesSinceFPSUpdate / timeSinceFPSUpdate;
+		swprintf_s(fpsText, L"FPS: %.0f", currentFPS); // Update the global text buffer
+
+		// Reset for the next second
+		timeSinceFPSUpdate = 0.0;
+		framesSinceFPSUpdate = 0;
+	}
+}
+
 void RendererEngine2D::OnShutdown()
 {
 	if(&renderTargetFactory)
 	{
 		(renderTargetFactory)->Release();
 		renderTargetFactory = NULL;
+	}
+
+	if(&batchPathGeometry)
+	{
+		(batchPathGeometry)->Release();
+		batchPathGeometry = NULL;
+	}
+
+	if(&textFormat)
+	{
+		(textFormat)->Release();
+		textFormat = NULL;
 	}
 
 	ReleaseRenderTarget();

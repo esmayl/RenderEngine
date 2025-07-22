@@ -7,24 +7,20 @@
 
 #include "Block2D.h"
 #include "Utilities.h"
+#include "BaseRenderer.h"
 
 #pragma comment(lib, "d2d1")
 #pragma comment(lib, "dwrite")
 
-class RendererEngine2D
+class RendererEngine2D : public BaseRenderer
 {
 	public:
-		// Define our target frame rate (e.g., 60 FPS)
-		const int TARGET_FPS = 60;
-
-		// Calculate the time one frame should take
-		const std::chrono::duration<long long,std::milli> TARGET_FRAME_TIME = std::chrono::milliseconds(1000) / TARGET_FPS;
-
 		std::vector<Block2D> blocks;
 
 		explicit RendererEngine2D(int blockWidth,int blockHeight);
-		void OnPaint(HWND windowHandle);
-		void OnShutdown();
+		void OnPaint(HWND windowHandle) override;
+		void CountFps() override;
+		void OnShutdown() override;
 
 	private:
 		std::chrono::time_point<std::chrono::steady_clock> startTime;
