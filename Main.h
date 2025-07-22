@@ -7,6 +7,7 @@
 
 #include "Utilities.h"
 #include "RendererEngine2D.h"
+#include "InstancedRendererEngine2D.h"
 
 #pragma comment(lib, "winmm.lib") // Instruction to the Microsoft compiler, used to link winm.lib after compiling to .obj
 

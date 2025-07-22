@@ -9,6 +9,37 @@ RendererEngine2D::RendererEngine2D(int blockWidth,int blockHeight)
 	startTime = std::chrono::steady_clock::now();
 }
 
+void RendererEngine2D::Init(HWND windowHandle)
+{
+	HRESULT hr = S_OK;
+
+	// Micro optimization to not re-create every frame
+	if(pBrush == nullptr)
+	{
+		const D2D1_COLOR_F color = D2D1::ColorF(1.0f, 1.0f, 1.0f, 1.0f);
+		hr = renderTarget->CreateSolidColorBrush(color, &pBrush);
+	}
+
+	if(textFormat == nullptr)
+	{
+		hr = writeFactory->CreateTextFormat(
+			L"Gabriola",
+			NULL,
+			DWRITE_FONT_WEIGHT_REGULAR,
+			DWRITE_FONT_STYLE_NORMAL,
+			DWRITE_FONT_STRETCH_NORMAL,
+			36.0f,
+			L"en-us",
+			&textFormat
+		);
+
+		textRect.left = 10;
+		textRect.right = 500;
+		textRect.bottom = 300;
+		textRect.top = 0;
+	}
+}
+
 HRESULT RendererEngine2D::SetupRenderTarget(HWND windowHandle)
 {
 	HRESULT hr = S_OK;
@@ -32,34 +63,6 @@ HRESULT RendererEngine2D::SetupRenderTarget(HWND windowHandle)
 			renderOverrides,
 			&renderTarget
 		);
-
-		if(hr >= 0)
-		{
-			// Micro optimization to not re-create every frame
-			if(pBrush == nullptr)
-			{
-				const D2D1_COLOR_F color = D2D1::ColorF(1.0f, 1.0f, 1.0f, 1.0f);
-				hr = renderTarget->CreateSolidColorBrush(color, &pBrush);
-			}
-
-			if(textFormat == nullptr)
-			{
-				hr = writeFactory->CreateTextFormat(
-					L"Gabriola",
-					NULL,
-					DWRITE_FONT_WEIGHT_REGULAR,
-					DWRITE_FONT_STYLE_NORMAL,
-					DWRITE_FONT_STRETCH_NORMAL,
-					36.0f,
-					L"en-us",
-					&textFormat
-				);
-				textRect.left = 10;
-				textRect.right = 500;
-				textRect.bottom = 300;
-				textRect.top = 0;
-			}
-		}
 	}
 
 	return hr;

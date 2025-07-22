@@ -8,6 +8,7 @@ class BaseRenderer
 {
 
 	public:
+		virtual void Init(HWND windowHandle){}
 		virtual void OnPaint(HWND windowHandle) {}
 		virtual void CountFps() {}
 		virtual void OnShutdown() {}

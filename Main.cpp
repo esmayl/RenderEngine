@@ -3,7 +3,7 @@
 int width = 100;
 int height = 100;
 
-RendererEngine2D renderEngine(width,height);
+InstancedRendererEngine2D renderEngine(width,height);
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -11,6 +11,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		case WM_CREATE:
 			// Init the render target factory
+			renderEngine.Init(hwnd);
 			return 0;
 
 		case WM_DESTROY:

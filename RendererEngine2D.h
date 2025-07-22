@@ -15,9 +15,9 @@
 class RendererEngine2D : public BaseRenderer
 {
 	public:
-		std::vector<Block2D> blocks;
 
 		explicit RendererEngine2D(int blockWidth,int blockHeight);
+		void Init(HWND windowHandle) override;
 		void OnPaint(HWND windowHandle) override;
 		void CountFps() override;
 		void OnShutdown() override;
@@ -29,6 +29,8 @@ class RendererEngine2D : public BaseRenderer
 		double timeSinceFPSUpdate = 0.0;
 		int framesSinceFPSUpdate = 0;
 		wchar_t fpsText[20];
+
+		std::vector<Block2D> blocks;
 
 		ID2D1Factory* renderTargetFactory = nullptr;
 		ID2D1HwndRenderTarget* renderTarget = nullptr;
