@@ -1,15 +1,14 @@
 #include "Utilities.h"
 
-std::vector<Block> Utilities::CreateBlocks(int width, int height)
+std::vector<Block2D> Utilities::CreateBlocks(int width, int height)
 {
-	std::vector<Block> tempBlocks;
+	std::vector<Block2D> tempBlocks;
 
-	for(size_t i = 0; i < 5; i++)
+	for(size_t i = 0; i < 100; i++)
 	{
-		for(size_t j = 0; j < 5; j++)
+		for(size_t j = 0; j < 100; j++)
 		{
-
-			tempBlocks.push_back(Block((width * i) + width / 2, (height * j) + height / 2, width, height, RandomGenerator::Generate()));
+			tempBlocks.push_back(Block2D((width * i) + width / 2, (height * j) + height / 2, width, height, RandomGenerator::Generate()));
 		}
 	}
 

@@ -1,6 +1,6 @@
-#include "Block.h"
+#include "Block2D.h"
 
-Block::Block(int newX, int newY, int newWidth, int newHeight,float newOffset)
+Block2D::Block2D(int newX, int newY, int newWidth, int newHeight,float newOffset)
 {
 	this->x = newX;
 	this->y = newY;

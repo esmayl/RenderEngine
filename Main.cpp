@@ -1,61 +1,32 @@
 #include "Main.h"
 
 
-std::vector<Block> blocks;
-auto startTime = std::chrono::steady_clock::now();
-wchar_t fpsText[256];
 double deltaTime = 0;
+int width = 100;
+int height = 100;
 
-// Define our target frame rate (e.g., 60 FPS)
-const int TARGET_FPS = 60;
 
-// Calculate the time one frame should take
-const auto TARGET_FRAME_TIME = std::chrono::milliseconds(1000) / TARGET_FPS;
-
+RendererEngine2D renderEngine;
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	static HDC backBufferHdc = NULL;
-	static HBITMAP backBufferBitmap = NULL;
-	static HBITMAP previousFrame = NULL;
-	static wchar_t timeText[256];
-
 	switch(uMsg)
 	{
-		case WM_DESTROY:
-			// --- Final Cleanup ---
-			// Clean up the GDI objects when the window is destroyed.
-			SelectObject(backBufferHdc, previousFrame);
-			DeleteObject(backBufferBitmap);
-			DeleteDC(backBufferHdc);
+		case WM_CREATE:
+			// Init the render target factory
+			D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &renderEngine.renderTargetFactory);
+			renderEngine.blocks = Utilities::CreateBlocks(width, height);
+			return 0;
 
+		case WM_DESTROY:
+			renderEngine.OnShutdown();
 			PostQuitMessage(0);
 			return 0;
 
 		case WM_SIZE:
 		{
-			// This message is sent when the window is created and resized.
-			// THIS IS WHERE YOU CREATE THE BACK BUFFER.
-
-			// Clean up old resources if they exist
-			if(backBufferHdc != NULL)
-			{
-				SelectObject(backBufferHdc, previousFrame);
-				DeleteObject(backBufferBitmap);
-				DeleteDC(backBufferHdc);
-			}
-
-			// Get the new window size
-			int width = LOWORD(lParam);
-			int height = HIWORD(lParam);
-
 			// Get a device context for the window
 			HDC hdc = GetDC(hwnd);
-
-			// Create the new back buffer resources
-			backBufferHdc = CreateCompatibleDC(hdc);
-			backBufferBitmap = CreateCompatibleBitmap(hdc, width, height);
-			previousFrame = (HBITMAP)SelectObject(backBufferHdc, backBufferBitmap);
 
 			// Release the temporary DC
 			ReleaseDC(hwnd, hdc);
@@ -67,37 +38,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			PAINTSTRUCT ps;
 			HDC hdc = BeginPaint(hwnd, &ps);
 
-			// Get the size of the client area of the window
-			RECT clientRect;
-			GetClientRect(hwnd, &clientRect);
-
-			// All painting occurs here, between BeginPaint and EndPaint.
-			FillRect(backBufferHdc, &ps.rcPaint, (HBRUSH)(COLOR_WINDOW + 6));
-
-			// Get the current time point
-			auto currentTime = std::chrono::steady_clock::now();
-			std::chrono::duration<double> elapsed_seconds = currentTime - startTime;
-
-			RECT edgeRect;
-			int sinnedY;
-			int edgeFlags = EDGE_RAISED;
-			for(size_t i = 0; i < blocks.size(); i++)
-			{
-				sinnedY = (int)(blocks[i].y + sin(elapsed_seconds.count() * 5 + blocks[i].offset) * 5);
-				edgeRect.left = blocks[i].x;
-				edgeRect.top = sinnedY;
-				edgeRect.right = blocks[i].x + blocks[i].width;
-				edgeRect.bottom = sinnedY + blocks[i].height;
-
-				DrawEdge(backBufferHdc, &edgeRect ,edgeFlags, BF_RECT);
-			}
-
-			Utilities::CustomDrawText(backBufferHdc, fpsText);
-
-			BitBlt(hdc,0,0, clientRect.right, clientRect.bottom, backBufferHdc,0,0,SRCCOPY);
+			renderEngine.OnPaint(hwnd);
 
 			EndPaint(hwnd, &ps);
-			
 		}
 
 		default:
@@ -112,7 +55,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow)
 {
 	// Request higher timer precision from Windows
-
 	timeBeginPeriod(1);
 
 	const wchar_t CLASS_NAME[] = L"Sample Window Class";
@@ -126,11 +68,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
 	// Register the window class
 	RegisterClass(&wc);
-
-	int width = 100;
-	int height = 100;
-
-	blocks = Utilities::CreateBlocks(width, height);
 
 	HWND hwnd = CreateWindowEx(
 		0,                              // Optional window styles.
@@ -194,8 +131,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
 		if(timeSinceFPSUpdate >= 1.0)
 		{
-			double currentFPS = framesSinceFPSUpdate / timeSinceFPSUpdate;
-			swprintf_s(fpsText, L"FPS: %.0f", currentFPS); // Update the global text buffer
+			//double currentFPS = framesSinceFPSUpdate / timeSinceFPSUpdate;
+			//swprintf_s(fpsText, L"FPS: %.0f", currentFPS); // Update the global text buffer
 
 			// Reset for the next second
 			timeSinceFPSUpdate = 0.0;
@@ -205,13 +142,13 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
 		InvalidateRect(hwnd, NULL, FALSE);
 
-		// --- Frame Rate Limiter (No changes needed here) ---
-		auto frameEndTime = std::chrono::steady_clock::now();
-		auto frameDuration = frameEndTime - currentTime;
-		if(frameDuration < TARGET_FRAME_TIME)
-		{
-			std::this_thread::sleep_for(TARGET_FRAME_TIME - frameDuration);
-		}
+		//// --- Frame Rate Limiter (No changes needed here) ---
+		//auto frameEndTime = std::chrono::steady_clock::now();
+		//auto frameDuration = frameEndTime - currentTime;
+		//if(frameDuration < TARGET_FRAME_TIME)
+		//{
+		//	std::this_thread::sleep_for(TARGET_FRAME_TIME - frameDuration);
+		//}
 	}
 
 	timeEndPeriod(1);
