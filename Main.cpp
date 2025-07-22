@@ -1,12 +1,10 @@
 #include "Main.h"
 
-
 double deltaTime = 0;
 int width = 100;
 int height = 100;
 
-
-RendererEngine2D renderEngine;
+RendererEngine2D renderEngine(width,height);
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -14,8 +12,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		case WM_CREATE:
 			// Init the render target factory
-			D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &renderEngine.renderTargetFactory);
-			renderEngine.blocks = Utilities::CreateBlocks(width, height);
 			return 0;
 
 		case WM_DESTROY:

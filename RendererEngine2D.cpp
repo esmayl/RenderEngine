@@ -1,5 +1,11 @@
 #include "RendererEngine2D.h"
 
+RendererEngine2D::RendererEngine2D(int blockWidth,int blockHeight)
+{
+	D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &renderTargetFactory);
+	blocks = Utilities::CreateBlocks(blockWidth, blockHeight);
+}
+
 HRESULT RendererEngine2D::SetupRenderTarget(HWND windowHandle)
 {
 	HRESULT hr = S_OK;
