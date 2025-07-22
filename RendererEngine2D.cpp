@@ -3,7 +3,10 @@
 RendererEngine2D::RendererEngine2D(int blockWidth,int blockHeight)
 {
 	D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &renderTargetFactory);
+	DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(IDWriteFactory),reinterpret_cast<IUnknown**>(&writeFactory));
 	blocks = Utilities::CreateBlocks(blockWidth, blockHeight);
+
+	startTime = std::chrono::steady_clock::now();
 }
 
 HRESULT RendererEngine2D::SetupRenderTarget(HWND windowHandle)
@@ -17,9 +20,16 @@ HRESULT RendererEngine2D::SetupRenderTarget(HWND windowHandle)
 
 		D2D1_SIZE_U renderSize = D2D1::SizeU(renderRect.right, renderRect.bottom);
 
+		// Overwrite vsync
+		renderOverrides = D2D1::HwndRenderTargetProperties(
+			windowHandle,
+			renderSize,
+			D2D1_PRESENT_OPTIONS_IMMEDIATELY
+		);
+
 		hr = renderTargetFactory->CreateHwndRenderTarget(
 			D2D1::RenderTargetProperties(),
-			D2D1::HwndRenderTargetProperties(windowHandle, renderSize),
+			renderOverrides,
 			&renderTarget
 		);
 
@@ -31,6 +41,24 @@ HRESULT RendererEngine2D::SetupRenderTarget(HWND windowHandle)
 				const D2D1_COLOR_F color = D2D1::ColorF(1.0f, 1.0f, 1.0f, 1.0f);
 				hr = renderTarget->CreateSolidColorBrush(color, &pBrush);
 			}
+
+			if(textFormat == nullptr)
+			{
+				hr = writeFactory->CreateTextFormat(
+					L"Gabriola",
+					NULL,
+					DWRITE_FONT_WEIGHT_REGULAR,
+					DWRITE_FONT_STYLE_NORMAL,
+					DWRITE_FONT_STRETCH_NORMAL,
+					36.0f,
+					L"en-us",
+					&textFormat
+				);
+				textRect.left = 10;
+				textRect.right = 500;
+				textRect.bottom = 300;
+				textRect.top = 0;
+			}
 		}
 	}
 
@@ -39,6 +67,25 @@ HRESULT RendererEngine2D::SetupRenderTarget(HWND windowHandle)
 
 void RendererEngine2D::OnPaint(HWND windowHandle)
 {
+	auto frameStartTime = std::chrono::steady_clock::now();
+
+	auto currentTime = std::chrono::steady_clock::now();
+	deltaTime = std::chrono::duration<double>(currentTime - lastFrameTime).count();
+	lastFrameTime = currentTime;
+
+	timeSinceFPSUpdate += deltaTime;
+	framesSinceFPSUpdate++;
+
+	if(timeSinceFPSUpdate >= 1.0)
+	{
+		double currentFPS = framesSinceFPSUpdate / timeSinceFPSUpdate;
+		swprintf_s(fpsText, L"FPS: %.0f", currentFPS); // Update the global text buffer
+
+		// Reset for the next second
+		timeSinceFPSUpdate = 0.0;
+		framesSinceFPSUpdate = 0;
+	}
+
 	HRESULT hr = SetupRenderTarget(windowHandle);
 
 	if(hr >= 0)
@@ -104,6 +151,7 @@ void RendererEngine2D::OnPaint(HWND windowHandle)
 		}
 		//Utilities::CustomDrawText(backBufferHdc, fpsText);
 
+		renderTarget->DrawTextW(fpsText, wcslen(fpsText), textFormat, textRect, pBrush);
 		hr = renderTarget->EndDraw();
 
 		if(FAILED(hr) || hr == D2DERR_RECREATE_TARGET)

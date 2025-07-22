@@ -1,6 +1,5 @@
 #include "Main.h"
 
-double deltaTime = 0;
 int width = 100;
 int height = 100;
 
@@ -89,16 +88,11 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
 	MSG msg = { };
 
-	auto lastFrameTime = std::chrono::steady_clock::now();
-	double timeSinceFPSUpdate = 0.0;
-	int framesSinceFPSUpdate = 0;
 
 	bool quitGame = false;
 
 	while(!quitGame)
 	{
-		auto frameStartTime = std::chrono::steady_clock::now();
-
 		// Process all pending messages in the queue.
 		while(PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
 		{
@@ -116,25 +110,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		{
 			break;
 		}
-
-		// --- Time and FPS Calculation (The Right Way) ---
-		auto currentTime = std::chrono::steady_clock::now();
-		deltaTime = std::chrono::duration<double>(currentTime - lastFrameTime).count();
-		lastFrameTime = currentTime;
-
-		timeSinceFPSUpdate += deltaTime;
-		framesSinceFPSUpdate++;
-
-		if(timeSinceFPSUpdate >= 1.0)
-		{
-			//double currentFPS = framesSinceFPSUpdate / timeSinceFPSUpdate;
-			//swprintf_s(fpsText, L"FPS: %.0f", currentFPS); // Update the global text buffer
-
-			// Reset for the next second
-			timeSinceFPSUpdate = 0.0;
-			framesSinceFPSUpdate = 0;
-		}
-
 
 		InvalidateRect(hwnd, NULL, FALSE);
 

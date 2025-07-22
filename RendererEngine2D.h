@@ -3,19 +3,17 @@
 #include <vector>
 #include <Windows.h>
 #include <d2d1.h>
-#include "Block2D.h"
+#include <dwrite.h>
 
+#include "Block2D.h"
 #include "Utilities.h"
 
 #pragma comment(lib, "d2d1")
+#pragma comment(lib, "dwrite")
 
 class RendererEngine2D
 {
 	public:
-		ID2D1Factory* renderTargetFactory = nullptr;
-		ID2D1HwndRenderTarget* renderTarget = nullptr;
-		ID2D1SolidColorBrush* pBrush = nullptr;
-
 		// Define our target frame rate (e.g., 60 FPS)
 		const int TARGET_FPS = 60;
 
@@ -30,8 +28,23 @@ class RendererEngine2D
 
 	private:
 		std::chrono::time_point<std::chrono::steady_clock> startTime;
-		wchar_t fpsText[256];
+		std::chrono::time_point<std::chrono::steady_clock> lastFrameTime;
+		double deltaTime = 0;
+		double timeSinceFPSUpdate = 0.0;
+		int framesSinceFPSUpdate = 0;
+		wchar_t fpsText[20];
+
+		ID2D1Factory* renderTargetFactory = nullptr;
+		ID2D1HwndRenderTarget* renderTarget = nullptr;
+		ID2D1SolidColorBrush* pBrush = nullptr;
 		ID2D1PathGeometry* batchPathGeometry = nullptr;
+
+		IDWriteFactory* writeFactory = nullptr;
+		IDWriteTextFormat* textFormat = nullptr;
+
+		D2D1_HWND_RENDER_TARGET_PROPERTIES renderOverrides;
+
+		D2D1_RECT_F textRect;
 
 		HRESULT SetupRenderTarget(HWND windowHandle);
 		void ReleaseRenderTarget();
