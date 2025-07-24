@@ -1,9 +1,9 @@
 #include "Main.h"
 
-int width = 100;
-int height = 100;
+int blockWidth = 1;
+int blockHeight = 1;
 
-InstancedRendererEngine2D renderEngine(width,height);
+InstancedRendererEngine2D renderEngine;
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -11,7 +11,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		case WM_CREATE:
 			// Init the render target factory
-			renderEngine.Init(hwnd);
+			renderEngine.Init(hwnd, blockWidth, blockHeight);
 			return 0;
 
 		case WM_DESTROY:
@@ -21,11 +21,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 		case WM_SIZE:
 		{
-			// Get a device context for the window
-			HDC hdc = GetDC(hwnd);
-
-			// Release the temporary DC
-			ReleaseDC(hwnd, hdc);
+			UINT width = LOWORD(lParam);
+			UINT height = HIWORD(lParam);
+			renderEngine.OnResize(width, height);
 			return 0;
 		}
 
@@ -71,7 +69,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		L"Learn to Program Windows",    // Window text
 		WS_OVERLAPPEDWINDOW,            // Window style
 		// Size and position
-		CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+		CW_USEDEFAULT, CW_USEDEFAULT, 
+		1280, 720, // Window size
 		NULL,       // Parent window    
 		NULL,       // Menu
 		hInstance,  // Instance handle

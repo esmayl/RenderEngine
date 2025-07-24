@@ -1,20 +1,21 @@
 #include "RendererEngine2D.h"
 
-RendererEngine2D::RendererEngine2D(int blockWidth,int blockHeight)
+RendererEngine2D::RendererEngine2D()
 {
 	D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &renderTargetFactory);
 	DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED,__uuidof(IDWriteFactory),reinterpret_cast<IUnknown**>(&writeFactory));
-	blocks = Utilities::CreateBlocks(blockWidth, blockHeight);
 
 	startTime = std::chrono::steady_clock::now();
 }
 
-void RendererEngine2D::Init(HWND windowHandle)
+void RendererEngine2D::Init(HWND windowHandle, int blockWidth, int blockHeight)
 {
 	HRESULT hr = S_OK;
 
 	RECT renderRect;
 	GetClientRect(windowHandle, &renderRect);
+
+	blocks = Utilities::CreateBlocks(renderRect.right, renderRect.bottom, renderRect.right / blockWidth, renderRect.bottom / blockHeight);
 
 	D2D1_SIZE_U renderSize = D2D1::SizeU(renderRect.right, renderRect.bottom);
 

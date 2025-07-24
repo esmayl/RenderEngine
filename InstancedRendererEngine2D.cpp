@@ -1,11 +1,7 @@
 #include "InstancedRendererEngine2D.h"
+#include "VertexInputData.h"
 
-InstancedRendererEngine2D::InstancedRendererEngine2D(int blockWidth, int blockHeight)
-{
-	blocks = Utilities::CreateBlocks(blockWidth, blockHeight);
-}
-
-void InstancedRendererEngine2D::Init(HWND windowHandle)
+void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int blockHeight)
 {
 	HRESULT hr = S_OK;
 
@@ -37,22 +33,26 @@ void InstancedRendererEngine2D::Init(HWND windowHandle)
 
 	if(FAILED(hr)) return;
 
-	hr = pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&pBackBuffer);
-	
-	if(FAILED(hr)) return;
-
-	hr = pDevice->CreateRenderTargetView(pBackBuffer, nullptr, &renderTargetView);
-
-	if(FAILED(hr)) return;
-
-	pDeviceContext->OMSetRenderTargets(1, &renderTargetView, nullptr);
+	bool retFlag;
+	InitRenderBufferAndTargetView(hr, retFlag);
+	if(retFlag) return;
 
 	// Get the window's client area size to set the viewport.
 	RECT rc;
 	GetClientRect(windowHandle, &rc);
 	UINT width = rc.right - rc.left;
 	UINT height = rc.bottom - rc.top;
+	
+	blocks = Utilities::CreateBlocks(width, height,width / blockWidth, height / blockHeight);
 
+	SetupViewport(width, height);
+
+	CreateShaders();
+	CreateBuffers();
+}
+
+void InstancedRendererEngine2D::SetupViewport(UINT width, UINT height)
+{
 	// Set up the viewport
 	D3D11_VIEWPORT vp = {};
 	vp.Width = (FLOAT)width;
@@ -63,8 +63,23 @@ void InstancedRendererEngine2D::Init(HWND windowHandle)
 	vp.TopLeftY = 0;
 	pDeviceContext->RSSetViewports(1, &vp);
 
-	CreateShaders();
-	CreateBuffers();
+	// Used for correcting triangles to their original shape and ignoring the aspect ratio of the viewport
+	aspectRatioX = (height > 0) ? (FLOAT)height / (FLOAT)width : 1.0f;
+}
+
+void InstancedRendererEngine2D::InitRenderBufferAndTargetView(HRESULT& hr, bool& retFlag)
+{
+	retFlag = true;
+	hr = pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&pBackBuffer);
+
+	if(FAILED(hr)) return;
+
+	hr = pDevice->CreateRenderTargetView(pBackBuffer, nullptr, &renderTargetView);
+
+	if(FAILED(hr)) return;
+
+	pDeviceContext->OMSetRenderTargets(1, &renderTargetView, nullptr);
+	retFlag = false;
 }
 
 void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
@@ -76,16 +91,85 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 		return;
 	}
 
+	// --- Update Constant Buffer ---
+	VertexInputData cbData;
+	cbData.objectPosX = 0.0f;
+	cbData.objectPosY = 0.0f;
+	cbData.aspectRatio = aspectRatioX;
+
+	pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
+
 	// Define a color to clear the window to.
 	const float clearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f }; // A nice blue
 
 	// Clear the back buffer.
 	pDeviceContext->ClearRenderTargetView(renderTargetView, clearColor);
 
+	pDeviceContext->IASetInputLayout(pInputLayout);
+
+	UINT stride = sizeof(Vertex);
+	UINT offset = 0;
+
+	pDeviceContext->IASetVertexBuffers(0, 1, &pVertexBuffer, &stride, &offset);
+	pDeviceContext->IASetIndexBuffer(pIndexBuffer,DXGI_FORMAT_R32_UINT,0);
+
+	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // Define what primitive we should draw with the vertex and indices
+
+	pDeviceContext->VSSetShader(pVertexShader,nullptr,0);
+	pDeviceContext->PSSetShader(pPixelShader, nullptr, 0);
+
+
+	cbData.aspectRatio = aspectRatioX;
+	
+	int columns = 50;
+	int rows = 50;
+
+	float startRenderPos = 1.0f / columns;
+	cbData.size = 40.0f * startRenderPos * 0.9f;
+
+	for(size_t i = 0; i < columns; i++)
+	{
+
+		cbData.objectPosX = startRenderPos * i;
+		
+		for(size_t j = 0; j < rows; j++)
+		{
+			cbData.objectPosY = startRenderPos * j;
+
+			auto currentTime = std::chrono::steady_clock::now();
+			std::chrono::duration<float> elapsed_seconds = currentTime - startTime;
+			cbData.time = elapsed_seconds.count();
+			cbData.offset = 1.0f / RandomGenerator::Generate();
+
+			pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
+			pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
+
+			pDeviceContext->DrawIndexed(6,0,0);
+		}
+	}
+
 	// Present the back buffer to the screen.
 	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
 	// Change to 0 to disable V-Sync.
 	pSwapChain->Present(1, 0);
+}
+
+void InstancedRendererEngine2D::OnResize(int width, int height)
+{
+	pDeviceContext->OMSetRenderTargets(0, 0, 0);
+
+	if(&renderTargetView)
+	{
+		(renderTargetView)->Release();
+		renderTargetView = NULL;
+	}
+
+	pSwapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
+
+	bool temp = false;
+	HRESULT hr = S_OK;
+	InitRenderBufferAndTargetView(hr,temp);
+	SetupViewport(width,height);
 }
 
 void InstancedRendererEngine2D::CountFps()
@@ -119,7 +203,21 @@ void InstancedRendererEngine2D::CreateShaders()
 {
 	// --- Define Shaders ---
 	const char* vsCode =
+		"cbuffer VertexInputData : register(b0) {"
+		"	 float size;"
+		"    float2 objectPos;" // objectPosX and objectPosY from C++ map here
+		"	 float aspectRatio;"
+		"	 float time;"
+		"	 float offset;"
+		"}"
 		"float4 main(float3 pos : POSITION) : SV_POSITION {"
+		""
+		"	 pos.x *= size;"
+		"	 pos.y *= size;"
+		"	 pos.x += (objectPos.x * 2.0f) - 1.0f;"
+		"	 pos.y += 1.0f - (objectPos.y * 2.0f);"
+		"	 pos.y += sin(time + offset);"
+		""
 		"    return float4(pos, 1.0f);"
 		"}";
 
@@ -229,10 +327,10 @@ void InstancedRendererEngine2D::CreateBuffers()
 {
 	// Square
 	Vertex vertices[] = {
-		{ -0.5f,  0.5f, 0.0f },
-		{  0.5f, 0.5f, 0.0f },
-		{ -0.5f, -0.5f, 0.0f },
-		{  0.5f, 0.0f, 0.0f }
+		{  0.0f,  0.0f, 0.0f }, // Top-left
+		{  0.05f,  0.0f, 0.0f }, // Top-right
+		{  0.0f, -0.05f, 0.0f }, // Bottom-left
+		{  0.05f, -0.05f, 0.0f }  // Bottom-right
 	};
 
 	// Create vertex buffer
@@ -259,5 +357,12 @@ void InstancedRendererEngine2D::CreateBuffers()
 	sd.pSysMem = indices;
 	
 	hr = pDevice->CreateBuffer(&bd, &sd, &pIndexBuffer);
+	if(FAILED(hr)) return;
+
+	bd.Usage = D3D11_USAGE_DEFAULT;
+	bd.ByteWidth = sizeof(VertexInputData);
+	bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	hr = pDevice->CreateBuffer(&bd, nullptr, &pConstantBuffer);
+
 	if(FAILED(hr)) return;
 }

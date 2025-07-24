@@ -7,7 +7,7 @@
 class Utilities
 {
 	public:
-		static std::vector<Block2D> CreateBlocks(int width, int height);
+		static std::vector<Block2D> CreateBlocks(int totalWidth, int totalHeight, int columns, int rows);
 		static void CustomDrawText(HDC buffer, const wchar_t textToDraw[]);
 };
 

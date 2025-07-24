@@ -1,18 +1,31 @@
 #include "Utilities.h"
 
-std::vector<Block2D> Utilities::CreateBlocks(int width, int height)
+std::vector<Block2D> Utilities::CreateBlocks(int totalWidth, int totalHeight, int columns, int rows)
 {
-	std::vector<Block2D> tempBlocks;
+    std::vector<Block2D> tempBlocks;
 
-	for(size_t i = 0; i < 50; i++)
-	{
-		for(size_t j = 0; j < 50; j++)
-		{
-			tempBlocks.push_back(Block2D((width * i) + width / 2, (height * j) + height / 2, width, height, RandomGenerator::Generate()));
-		}
-	}
+    // Prevent division by zero if columns or rows are 0
+    if(columns == 0 || rows == 0)
+    {
+        return tempBlocks;
+    }
 
-	return tempBlocks;
+
+    // Loop through the desired number of columns and rows
+    for(int i = 0; i < columns; i++)
+    {
+        for(int j = 0; j < rows; j++)
+        {
+            // Calculate the center position of the block
+            float centerX = i;
+            float centerY = j;
+
+            // Create the block with the calculated position and size
+            tempBlocks.push_back(Block2D(centerX, centerY, 0, 0, RandomGenerator::Generate()));
+        }
+    }
+
+    return tempBlocks;
 }
 
 void Utilities::CustomDrawText(HDC buffer, const wchar_t textToDraw[])
