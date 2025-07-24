@@ -4,6 +4,7 @@
 void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int blockHeight)
 {
 	HRESULT hr = S_OK;
+	startTime = std::chrono::steady_clock::now();
 
 	// Create the Device and Swap Chain
 	DXGI_SWAP_CHAIN_DESC sd = {};
@@ -43,7 +44,7 @@ void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int bloc
 	UINT width = rc.right - rc.left;
 	UINT height = rc.bottom - rc.top;
 	
-	blocks = Utilities::CreateBlocks(width, height,width / blockWidth, height / blockHeight);
+	//blocks = Utilities::CreateBlocks(width, height,width / blockWidth, height / blockHeight);
 
 	SetupViewport(width, height);
 
@@ -86,18 +87,15 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 {
 	CountFps();
 
+	auto currentTime = std::chrono::steady_clock::now();
+	float deltaTime = std::chrono::duration<float>(currentTime - startTime).count();
+	startTime = currentTime;
+	totalTime += deltaTime;
+
 	if(!pDeviceContext || !pSwapChain)
 	{
 		return;
 	}
-
-	// --- Update Constant Buffer ---
-	VertexInputData cbData;
-	cbData.objectPosX = 0.0f;
-	cbData.objectPosY = 0.0f;
-	cbData.aspectRatio = aspectRatioX;
-
-	pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
 
 	// Define a color to clear the window to.
 	const float clearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f }; // A nice blue
@@ -111,35 +109,38 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	UINT offset = 0;
 
 	pDeviceContext->IASetVertexBuffers(0, 1, &pVertexBuffer, &stride, &offset);
-	pDeviceContext->IASetIndexBuffer(pIndexBuffer,DXGI_FORMAT_R32_UINT,0);
+	pDeviceContext->IASetIndexBuffer(pIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
 	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // Define what primitive we should draw with the vertex and indices
 
-	pDeviceContext->VSSetShader(pVertexShader,nullptr,0);
+	pDeviceContext->VSSetShader(pVertexShader, nullptr, 0);
 	pDeviceContext->PSSetShader(pPixelShader, nullptr, 0);
 
-
-	cbData.aspectRatio = aspectRatioX;
 	
-	int columns = 50;
-	int rows = 50;
+	int columns = 20;
+	int rows = 20;
 
 	float startRenderPos = 1.0f / columns;
-	cbData.size = 40.0f * startRenderPos * 0.9f;
+
+	VertexInputData cbData;
+
+	cbData.objectPosX = 0.0f;
+	cbData.objectPosY = 0.0f;
+	cbData.aspectRatio = aspectRatioX;
+	cbData.size = 40.0f * startRenderPos * 0.98f;
+	cbData.time = totalTime;
+	cbData.deltaTime = deltaTime;
+
 
 	for(size_t i = 0; i < columns; i++)
 	{
 
 		cbData.objectPosX = startRenderPos * i;
-		
+
 		for(size_t j = 0; j < rows; j++)
 		{
 			cbData.objectPosY = startRenderPos * j;
-
-			auto currentTime = std::chrono::steady_clock::now();
-			std::chrono::duration<float> elapsed_seconds = currentTime - startTime;
-			cbData.time = elapsed_seconds.count();
-			cbData.offset = 1.0f / RandomGenerator::Generate();
+			cbData.speed = 0.75 * max(i+j, 1.0f);
 
 			pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
 			pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
@@ -208,15 +209,17 @@ void InstancedRendererEngine2D::CreateShaders()
 		"    float2 objectPos;" // objectPosX and objectPosY from C++ map here
 		"	 float aspectRatio;"
 		"	 float time;"
-		"	 float offset;"
+		"	 float padding;"
+		"	 float deltaTime;"
+		"	 float speed;"
 		"}"
 		"float4 main(float3 pos : POSITION) : SV_POSITION {"
 		""
-		"	 pos.x *= size;"
-		"	 pos.y *= size;"
-		"	 pos.x += (objectPos.x * 2.0f) - 1.0f;"
-		"	 pos.y += 1.0f - (objectPos.y * 2.0f);"
-		"	 pos.y += sin(time + offset);"
+		"    pos.x *= size;"
+		"    pos.y *= size;"
+		"    pos.x += (objectPos.x * 2.0f) - 1.0f;"
+		"    pos.y += 1.0f - (objectPos.y * 2.0f);"
+		"    pos.y += sin(time * speed) * 0.05f;"
 		""
 		"    return float4(pos, 1.0f);"
 		"}";

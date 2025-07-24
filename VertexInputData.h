@@ -6,7 +6,7 @@ struct VertexInputData
 	float objectPosY; // 4 bytes
 	float aspectRatio; // 4 bytes
 	float time;
-	float offset;
-	float padding2;
-	float padding3;
+	float padding;
+	float deltaTime;
+	float speed;
 }; // Total needs to be multiples of 16 bytes otherwise buffer cannot be created

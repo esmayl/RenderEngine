@@ -10,7 +10,7 @@ float RandomGenerator::Generate()
 
 	// 3. A distribution to produce floating-point numbers in a specific range.
 	//    We'll generate a random phase offset between 0 and 2*PI.
-	std::uniform_real_distribution<float> distrib(0.0f, 2.0f * 3.14159f);
+	std::uniform_real_distribution<float> distrib(0.0f, 1.0f);
 
 	return distrib(gen);
 }

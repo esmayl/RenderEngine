@@ -58,6 +58,7 @@ class InstancedRendererEngine2D : public BaseRenderer
 
 		int columns = 500;
 		int rows = 500;
+		float totalTime = 0.0f;
 
 		void CreateShaders();
 		void CreateBuffers();
