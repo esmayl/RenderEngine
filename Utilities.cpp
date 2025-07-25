@@ -1,16 +1,5 @@
 #include "Utilities.h"
 
-template<class T>
-void SafeRelease(T** ppT)
-{
-    if(*ppT)
-    {
-        (*ppT)->Release();
-        *ppT = nullptr;
-    }
-}
-
-
 std::vector<Block2D> Utilities::CreateBlocks(int totalWidth, int totalHeight, int columns, int rows)
 {
     std::vector<Block2D> tempBlocks;

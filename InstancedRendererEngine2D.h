@@ -12,7 +12,8 @@
 #include "Vertex.h"
 #include "VertexInputData.h"
 #include "InstanceData.h"
-#include "Utilities.cpp"
+#include "SquareMesh.h"
+#include "TriangleMesh.h"
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -49,8 +50,6 @@ class InstancedRendererEngine2D : public BaseRenderer
 		ID3D11Texture2D* pBackBuffer; // Maybe not needed?
 
 		// for rendering triangles
-		ID3D11Buffer* pVertexBuffer;
-		ID3D11Buffer* pIndexBuffer;
 		ID3D11Buffer* pConstantBuffer;
 		ID3D11Buffer* pInstanceBuffer;
 		ID3D11VertexShader* pVertexShader;
@@ -61,6 +60,9 @@ class InstancedRendererEngine2D : public BaseRenderer
 		int columns = 500;
 		int rows = 500;
 		float totalTime = 0.0f;
+
+		SquareMesh* square = nullptr;
+		TriangleMesh* triangle = nullptr;
 
 		void CreateShaders();
 		void CreateBuffers();

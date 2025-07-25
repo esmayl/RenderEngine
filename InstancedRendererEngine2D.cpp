@@ -1,5 +1,15 @@
 #include "InstancedRendererEngine2D.h"
 
+template<class T>
+void SafeRelease(T** ppT)
+{
+	if(*ppT)
+	{
+		(*ppT)->Release();
+		*ppT = nullptr;
+	}
+}
+
 void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int blockHeight)
 {
 	HRESULT hr = S_OK;
@@ -111,9 +121,9 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 
 	UINT stride = sizeof(Vertex);
 	UINT offset = 0;
-
-	pDeviceContext->IASetVertexBuffers(0, 1, &pVertexBuffer, &stride, &offset);
-	pDeviceContext->IASetIndexBuffer(pIndexBuffer, DXGI_FORMAT_R32_UINT, 0);
+	
+	pDeviceContext->IASetVertexBuffers(0, 1, &triangle->renderingData->vertexBuffer, &stride, &offset);
+	pDeviceContext->IASetIndexBuffer(triangle->renderingData->indexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
 	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // Define what primitive we should draw with the vertex and indices
 
@@ -167,6 +177,7 @@ void InstancedRendererEngine2D::CountFps()
 
 void InstancedRendererEngine2D::OnShutdown()
 {
+	delete square;
 }
 
 
@@ -232,44 +243,18 @@ void InstancedRendererEngine2D::CreateShaders()
 
 void InstancedRendererEngine2D::CreateBuffers()
 {
-	// Square
-	Vertex vertices[] = {
-		{  0.0f,  0.0f, 0.0f }, // Top-left
-		{  0.05f,  0.0f, 0.0f }, // Top-right
-		{  0.0f, -0.05f, 0.0f }, // Bottom-left
-		{  0.05f, -0.05f, 0.0f }  // Bottom-right
-	};
+	square = new SquareMesh(*pDevice);
+	triangle = new TriangleMesh(*pDevice);
 
-	// Create vertex buffer
+	// Create buffer description for vertices
 	D3D11_BUFFER_DESC bd = {};
-	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof(vertices);
-	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 
-	D3D11_SUBRESOURCE_DATA sd = {};
-	sd.pSysMem = vertices;
-	
-	HRESULT hr = pDevice->CreateBuffer(&bd, &sd, &pVertexBuffer);
-	if(FAILED(hr)) return;
-
-	// Create index buffer
-	UINT indices[] = 
-	{ 
-		0, 1, 2, // first triangle
-		2, 1, 3	 // second triangle
-	};
-
-	bd.ByteWidth = sizeof(indices);
-	bd.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	sd.pSysMem = indices;
-	
-	hr = pDevice->CreateBuffer(&bd, &sd, &pIndexBuffer);
-	if(FAILED(hr)) return;
-
+	// Re-use buffer description for the input layout like position.
 	bd.Usage = D3D11_USAGE_DEFAULT;
 	bd.ByteWidth = sizeof(VertexInputData);
 	bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	hr = pDevice->CreateBuffer(&bd, nullptr, &pConstantBuffer);
+
+	HRESULT hr = pDevice->CreateBuffer(&bd, nullptr, &pConstantBuffer);
 
 	if(FAILED(hr)) return;
 }

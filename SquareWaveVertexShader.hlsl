@@ -26,7 +26,7 @@ VS_OUTPUT main(float3 pos : POSITION)
 		
     output.position = float4(pos, 1.0f);
 	
-    float b = saturate(objectPos.y);
+    float b = saturate(1 - objectPos.y);
     output.color = float4(0.0f, 0.0f, b,1.0f); // Red to Blue, fully opaque
 	
 	return output;
