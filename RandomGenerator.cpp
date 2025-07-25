@@ -9,8 +9,18 @@ float RandomGenerator::Generate()
 	std::mt19937 gen(rd());
 
 	// 3. A distribution to produce floating-point numbers in a specific range.
-	//    We'll generate a random phase offset between 0 and 2*PI.
-	std::uniform_real_distribution<float> distrib(0.0f, 1.0f);
+	//    We'll generate a random phase offset between 0 and 1.
+	std::uniform_real_distribution<float> distrib(1.0f, 2.0f);
 
 	return distrib(gen);
+}
+
+float RandomGenerator::Slerp(float current, float start, float end)
+{
+	float angleInRadials = 15 * 57.3f; // since 2 * pi radials = 360 degress
+	float q1 = start;
+	float q2 = end;
+	float part1 = sin((1 - current) * angleInRadials) / sin(angleInRadials) * q1;
+	float part2 = sin(current * angleInRadials) / sin(angleInRadials) * q2;
+	return part1+part2;
 }

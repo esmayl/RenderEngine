@@ -16,14 +16,26 @@ void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int bloc
 	sd.SampleDesc.Count = 1;
 	sd.Windowed = TRUE;
 
+	// Manually set all 'feature' levels, basically the directx versions
+	D3D_FEATURE_LEVEL featureLevels[] = {
+		D3D_FEATURE_LEVEL_11_0,
+		D3D_FEATURE_LEVEL_10_1,
+		D3D_FEATURE_LEVEL_10_0,
+		D3D_FEATURE_LEVEL_9_3,
+		D3D_FEATURE_LEVEL_9_2,
+		D3D_FEATURE_LEVEL_9_1,
+	};
+	UINT numFeatureLevels = ARRAYSIZE(featureLevels);
+
+
 	// Create the device, device context, and swap chain.
 	hr = D3D11CreateDeviceAndSwapChain(
 		nullptr,                    // Default adapter
 		D3D_DRIVER_TYPE_HARDWARE,
 		nullptr,                    // No software device
 		0,                          // No creation flags
-		nullptr,                    // Default feature levels
-		0,                          // Number of feature levels
+		featureLevels,                    // Default feature levels
+		numFeatureLevels,                          // Number of feature levels
 		D3D11_SDK_VERSION,
 		&sd,
 		&pSwapChain,
@@ -117,8 +129,8 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	pDeviceContext->PSSetShader(pPixelShader, nullptr, 0);
 
 	
-	int columns = 20;
-	int rows = 20;
+	int columns = 100;
+	int rows = 100;
 
 	float startRenderPos = 1.0f / columns;
 
@@ -129,18 +141,18 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	cbData.aspectRatio = aspectRatioX;
 	cbData.size = 40.0f * startRenderPos * 0.98f;
 	cbData.time = totalTime;
-	cbData.deltaTime = deltaTime;
-
+	cbData.speed = 4.0f;
 
 	for(size_t i = 0; i < columns; i++)
 	{
 
 		cbData.objectPosX = startRenderPos * i;
+		cbData.indexesX = i;
 
 		for(size_t j = 0; j < rows; j++)
 		{
 			cbData.objectPosY = startRenderPos * j;
-			cbData.speed = 0.75 * max(i+j, 1.0f);
+			cbData.indexesY = j;
 
 			pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
 			pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
@@ -202,39 +214,14 @@ void InstancedRendererEngine2D::OnShutdown()
 
 void InstancedRendererEngine2D::CreateShaders()
 {
-	// --- Define Shaders ---
-	const char* vsCode =
-		"cbuffer VertexInputData : register(b0) {"
-		"	 float size;"
-		"    float2 objectPos;" // objectPosX and objectPosY from C++ map here
-		"	 float aspectRatio;"
-		"	 float time;"
-		"	 float padding;"
-		"	 float deltaTime;"
-		"	 float speed;"
-		"}"
-		"float4 main(float3 pos : POSITION) : SV_POSITION {"
-		""
-		"    pos.x *= size;"
-		"    pos.y *= size;"
-		"    pos.x += (objectPos.x * 2.0f) - 1.0f;"
-		"    pos.y += 1.0f - (objectPos.y * 2.0f);"
-		"    pos.y += sin(time * speed) * 0.05f;"
-		""
-		"    return float4(pos, 1.0f);"
-		"}";
-
-	const char* psCode =
-		"float4 main() : SV_TARGET {"
-		"    return float4(1.0f, 1.0f, 1.0f, 1.0f);" // White color
-		"}";
-
 	// --- Compile and Create Shaders ---
 	ID3DBlob* vsBlob = nullptr;
 	ID3DBlob* psBlob = nullptr;
 	ID3DBlob* errorBlob = nullptr;
 
-	HRESULT hr = D3DCompile(vsCode, strlen(vsCode), nullptr, nullptr, nullptr, "main", "vs_5_0", 0, 0, &vsBlob, &errorBlob);
+	const wchar_t* vsFilePath = L"SquareWaveVertexShader.hlsl"; // Path to your HLSL file
+
+	HRESULT hr = D3DCompileFromFile(vsFilePath, nullptr, nullptr, "main", "vs_5_0", 0, 0, &vsBlob, &errorBlob);
 	if(hr < 0) 
 	{ 
 		if(&errorBlob)
@@ -246,7 +233,9 @@ void InstancedRendererEngine2D::CreateShaders()
 		return; 
 	}
 
-	hr = D3DCompile(psCode, strlen(psCode), nullptr, nullptr, nullptr, "main", "ps_5_0", 0, 0, &psBlob, &errorBlob);
+	const wchar_t* psFilePath = L"PlainPixelShader.hlsl"; // Path to your HLSL file
+
+	hr = D3DCompileFromFile(psFilePath, nullptr, nullptr, "main", "ps_5_0", 0, 0, &psBlob, &errorBlob);
 	if(hr < 0)
 	{
 		if(&vsBlob)
