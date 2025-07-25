@@ -1,5 +1,4 @@
 #include "InstancedRendererEngine2D.h"
-#include "VertexInputData.h"
 
 void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int blockHeight)
 {
@@ -16,7 +15,7 @@ void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int bloc
 	sd.SampleDesc.Count = 1;
 	sd.Windowed = TRUE;
 
-	// Manually set all 'feature' levels, basically the directx versions
+	// Manually set all 'feature' levels, basically the directx versions. Also check project settings and hlsl setting per file for compiling model etc..
 	D3D_FEATURE_LEVEL featureLevels[] = {
 		D3D_FEATURE_LEVEL_11_0,
 		D3D_FEATURE_LEVEL_10_1,
@@ -26,7 +25,6 @@ void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int bloc
 		D3D_FEATURE_LEVEL_9_1,
 	};
 	UINT numFeatureLevels = ARRAYSIZE(featureLevels);
-
 
 	// Create the device, device context, and swap chain.
 	hr = D3D11CreateDeviceAndSwapChain(
@@ -43,12 +41,10 @@ void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int bloc
 		nullptr,                    // Don't need feature level
 		&pDeviceContext
 	);
-
 	if(FAILED(hr)) return;
 
-	bool retFlag;
-	InitRenderBufferAndTargetView(hr, retFlag);
-	if(retFlag) return;
+	InitRenderBufferAndTargetView(hr);
+	if(FAILED(hr)) return;
 
 	// Get the window's client area size to set the viewport.
 	RECT rc;
@@ -68,31 +64,29 @@ void InstancedRendererEngine2D::SetupViewport(UINT width, UINT height)
 {
 	// Set up the viewport
 	D3D11_VIEWPORT vp = {};
+
 	vp.Width = (FLOAT)width;
 	vp.Height = (FLOAT)height;
 	vp.MinDepth = 0.0f;
 	vp.MaxDepth = 1.0f;
 	vp.TopLeftX = 0;
 	vp.TopLeftY = 0;
+
 	pDeviceContext->RSSetViewports(1, &vp);
 
 	// Used for correcting triangles to their original shape and ignoring the aspect ratio of the viewport
 	aspectRatioX = (height > 0) ? (FLOAT)height / (FLOAT)width : 1.0f;
 }
 
-void InstancedRendererEngine2D::InitRenderBufferAndTargetView(HRESULT& hr, bool& retFlag)
+void InstancedRendererEngine2D::InitRenderBufferAndTargetView(HRESULT& hr)
 {
-	retFlag = true;
 	hr = pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&pBackBuffer);
-
 	if(FAILED(hr)) return;
 
 	hr = pDevice->CreateRenderTargetView(pBackBuffer, nullptr, &renderTargetView);
-
 	if(FAILED(hr)) return;
 
 	pDeviceContext->OMSetRenderTargets(1, &renderTargetView, nullptr);
-	retFlag = false;
 }
 
 void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
@@ -112,10 +106,8 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	// Define a color to clear the window to.
 	const float clearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f }; // A nice blue
 
-	// Clear the back buffer.
-	pDeviceContext->ClearRenderTargetView(renderTargetView, clearColor);
-
-	pDeviceContext->IASetInputLayout(pInputLayout);
+	pDeviceContext->ClearRenderTargetView(renderTargetView, clearColor); // Clear the back buffer.
+	pDeviceContext->IASetInputLayout(pInputLayout); // Setup input variables for the vertex shader like the vertex position
 
 	UINT stride = sizeof(Vertex);
 	UINT offset = 0;
@@ -128,38 +120,7 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	pDeviceContext->VSSetShader(pVertexShader, nullptr, 0);
 	pDeviceContext->PSSetShader(pPixelShader, nullptr, 0);
 
-	
-	int columns = 20;
-	int rows = 20;
-
-	float startRenderPos = 1.0f / columns;
-
-	VertexInputData cbData;
-
-	cbData.objectPosX = 0.0f;
-	cbData.objectPosY = 0.0f;
-	cbData.aspectRatio = aspectRatioX;
-	cbData.size = 40.0f * startRenderPos * 0.98f;
-	cbData.time = totalTime;
-	cbData.speed = 4.0f;
-
-	for(size_t i = 0; i < columns; i++)
-	{
-
-		cbData.objectPosX = startRenderPos * i;
-		cbData.indexesX = i;
-
-		for(size_t j = 0; j < rows; j++)
-		{
-			cbData.objectPosY = startRenderPos * j;
-			cbData.indexesY = j;
-
-			pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
-			pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
-
-			pDeviceContext->DrawIndexed(6,0,0);
-		}
-	}
+	RenderWavingGrid(20,20);
 
 	// Present the back buffer to the screen.
 	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
@@ -170,18 +131,15 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 void InstancedRendererEngine2D::OnResize(int width, int height)
 {
 	pDeviceContext->OMSetRenderTargets(0, 0, 0);
-
-	if(&renderTargetView)
-	{
-		(renderTargetView)->Release();
-		renderTargetView = NULL;
-	}
+	SafeRelease(&renderTargetView);
 
 	pSwapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
 
-	bool temp = false;
 	HRESULT hr = S_OK;
-	InitRenderBufferAndTargetView(hr,temp);
+	InitRenderBufferAndTargetView(hr);
+	
+	if(FAILED(hr)) return;
+
 	SetupViewport(width,height);
 }
 
@@ -222,69 +180,35 @@ void InstancedRendererEngine2D::CreateShaders()
 	const wchar_t* vsFilePath = L"SquareWaveVertexShader.hlsl"; // Path to your HLSL file
 
 	HRESULT hr = D3DCompileFromFile(vsFilePath, nullptr, nullptr, "main", "vs_5_0", 0, 0, &vsBlob, &errorBlob);
-	if(hr < 0) 
+	if(FAILED(hr))
 	{ 
-		if(&errorBlob)
-		{
-			(errorBlob)->Release();
-			errorBlob = NULL;
-		}
-
+		SafeRelease(&errorBlob);
 		return; 
 	}
 
 	const wchar_t* psFilePath = L"PlainPixelShader.hlsl"; // Path to your HLSL file
 
 	hr = D3DCompileFromFile(psFilePath, nullptr, nullptr, "main", "ps_5_0", 0, 0, &psBlob, &errorBlob);
-	if(hr < 0)
+	if(FAILED(hr))
 	{
-		if(&vsBlob)
-		{
-			(vsBlob)->Release();
-			vsBlob = NULL;
-		}
-
-		if(&errorBlob)
-		{
-			(errorBlob)->Release();
-			errorBlob = NULL;
-		}
-
+		SafeRelease(&vsBlob);
+		SafeRelease(&errorBlob);
 		return;
 	}
 
 	hr = pDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &pVertexShader);
-	if(hr < 0)
+	if(FAILED(hr))
 	{
-		if(&vsBlob)
-		{
-			(vsBlob)->Release();
-			vsBlob = NULL;
-		}
-
-		if(&psBlob)
-		{
-			(psBlob)->Release();
-			psBlob = NULL;
-		}
-
+		SafeRelease(&vsBlob);
+		SafeRelease(&psBlob);
 		return;
 	}
 
 	hr = pDevice->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &pPixelShader);
-	if(hr < 0)
+	if(FAILED(hr))
 	{
-		if(&vsBlob)
-		{
-			(vsBlob)->Release();
-			vsBlob = NULL;
-		}
-
-		if(&psBlob)
-		{
-			(psBlob)->Release();
-			psBlob = NULL;
-		}
+		SafeRelease(&vsBlob);
+		SafeRelease(&psBlob);
 
 		return;
 	}
@@ -295,19 +219,10 @@ void InstancedRendererEngine2D::CreateShaders()
 	};
 	hr = pDevice->CreateInputLayout(layout, ARRAYSIZE(layout), vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &pInputLayout);
 
-	if(&vsBlob)
-	{
-		(vsBlob)->Release();
-		vsBlob = NULL;
-	}
+	SafeRelease(&vsBlob);
+	SafeRelease(&psBlob);
 
-	if(&psBlob)
-	{
-		(psBlob)->Release();
-		psBlob = NULL;
-	}
-
-	if(hr < 0)
+	if(FAILED(hr))
 	{
 		return;
 	}
@@ -357,4 +272,39 @@ void InstancedRendererEngine2D::CreateBuffers()
 	hr = pDevice->CreateBuffer(&bd, nullptr, &pConstantBuffer);
 
 	if(FAILED(hr)) return;
+}
+
+void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
+{
+	int columns = gridWidth;
+	int rows = gridHeight;
+
+	float startRenderPos = 1.0f / columns;
+
+	VertexInputData cbData;
+
+	cbData.objectPosX = 0.0f;
+	cbData.objectPosY = 0.0f;
+	cbData.aspectRatio = aspectRatioX;
+	cbData.size = 40.0f * startRenderPos * 0.98f;
+	cbData.time = totalTime;
+	cbData.speed = 4.0f;
+
+	for(size_t i = 0; i < columns; i++)
+	{
+
+		cbData.objectPosX = startRenderPos * i;
+		cbData.indexesX = i;
+
+		for(size_t j = 0; j < rows; j++)
+		{
+			cbData.objectPosY = startRenderPos * j;
+			cbData.indexesY = j;
+
+			pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
+			pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
+
+			pDeviceContext->DrawIndexed(6, 0, 0);
+		}
+	}
 }

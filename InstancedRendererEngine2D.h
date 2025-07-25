@@ -12,6 +12,7 @@
 #include "Vertex.h"
 #include "VertexInputData.h"
 #include "InstanceData.h"
+#include "Utilities.cpp"
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -22,8 +23,9 @@ class InstancedRendererEngine2D : public BaseRenderer
 	public:
 		void Init(HWND windowHandle, int blockWidth, int blockHeight) override;
 		void SetupViewport(UINT width, UINT height);
-		void InitRenderBufferAndTargetView(HRESULT& hr, bool& retFlag);
+		void InitRenderBufferAndTargetView(HRESULT& hr);
 		void OnPaint(HWND windowHandle) override;
+		void RenderWavingGrid(int gridWidth, int gridHeight);
 		void OnResize(int width, int height) override;
 
 		void CountFps() override;
