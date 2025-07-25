@@ -129,8 +129,8 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	pDeviceContext->PSSetShader(pPixelShader, nullptr, 0);
 
 	
-	int columns = 100;
-	int rows = 100;
+	int columns = 20;
+	int rows = 20;
 
 	float startRenderPos = 1.0f / columns;
 
