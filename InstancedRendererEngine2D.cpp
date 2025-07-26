@@ -127,7 +127,7 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 
 	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // Define what primitive we should draw with the vertex and indices
 
-	RenderWavingGrid(50,50);
+	RenderWavingGrid(30,10);
 
 	// Present the back buffer to the screen.
 	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
