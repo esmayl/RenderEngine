@@ -281,15 +281,16 @@ void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
 	int columns = gridWidth;
 	int rows = gridHeight;
 
-	float startRenderPosX = 1.0f / columns;
-	float startRenderPosY = 1.0f / rows;
+	float startRenderPosX = 2.0f / columns;
+	float startRenderPosY = 2.0f / rows;
 
-	float factor = startRenderPosX * 40.0f;
+	float factorX = startRenderPosX * 40.0f;
+	float factorY = startRenderPosY * 40.0f;
 	VertexInputData cbData;
 
 	cbData.aspectRatio = aspectRatioX;
-	cbData.sizeX = factor * aspectRatioX; // -1 to 1 == 2 , 2 / by single element distance from 0 == total size over width, * single element == size per element
-	cbData.sizeY = factor; // -1 to 1 == 2 , 2 / by single element distance from 0 == total size over width, * single element == size per element
+	cbData.sizeX = factorX * aspectRatioX; // -1 to 1 == 2 , 2 / by single element distance from 0 == total size over width, * single element == size per element
+	cbData.sizeY = factorY; // -1 to 1 == 2 , 2 / by single element distance from 0 == total size over width, * single element == size per element
 	cbData.time = totalTime;
 	cbData.speed = 4.0f;
 
@@ -301,7 +302,7 @@ void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
 
 		for(size_t j = 0; j < rows; j++)
 		{
-			cbData.objectPosY = startRenderPosX * j;
+			cbData.objectPosY = startRenderPosY * j;
 			cbData.indexesY = j;
 
 			pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);

@@ -15,9 +15,7 @@ struct VS_OUTPUT
 VS_OUTPUT main(float3 pos : POSITION)
 {
     VS_OUTPUT output;
-    pos.x *= size * aspectRatio; // scale vertex to scale the whole triangle
-    
-    pos.x /= aspectRatio;
+    pos.x *= size;
     pos.y *= size;
     
     pos.x += (objectPos.x * 2.0f) - 1.0f; // convert from normal 0,1 to weird -1 ,1
