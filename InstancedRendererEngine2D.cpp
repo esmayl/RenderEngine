@@ -122,8 +122,8 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	UINT stride = sizeof(Vertex);
 	UINT offset = 0;
 	
-	pDeviceContext->IASetVertexBuffers(0, 1, &triangle->renderingData->vertexBuffer, &stride, &offset);
-	pDeviceContext->IASetIndexBuffer(triangle->renderingData->indexBuffer, DXGI_FORMAT_R32_UINT, 0);
+	pDeviceContext->IASetVertexBuffers(0, 1, &square->renderingData->vertexBuffer, &stride, &offset);
+	pDeviceContext->IASetIndexBuffer(square->renderingData->indexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
 	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // Define what primitive we should draw with the vertex and indices
 
@@ -188,7 +188,7 @@ void InstancedRendererEngine2D::CreateShaders()
 	ID3DBlob* psBlob = nullptr;
 	ID3DBlob* errorBlob = nullptr;
 
-	const wchar_t* vsFilePath = L"SquareWaveVertexShader.hlsl"; // Path to your HLSL file
+	const wchar_t* vsFilePath = L"TextVertexShader.hlsl"; // Path to your HLSL file
 
 	HRESULT hr = D3DCompileFromFile(vsFilePath, nullptr, nullptr, "main", "vs_5_0", 0, 0, &vsBlob, &errorBlob);
 	if(FAILED(hr))
@@ -271,7 +271,7 @@ void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
 	cbData.objectPosX = 0.0f;
 	cbData.objectPosY = 0.0f;
 	cbData.aspectRatio = aspectRatioX;
-	cbData.size = 40.0f * startRenderPos * 0.98f;
+	cbData.size = (2 / startRenderPos) * startRenderPos * 0.95f; // -1 to 1 == 2 , 2 / by single element distance from 0 == total size over width, * single element == size per element
 	cbData.time = totalTime;
 	cbData.speed = 4.0f;
 
