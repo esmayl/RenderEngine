@@ -127,10 +127,7 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 
 	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // Define what primitive we should draw with the vertex and indices
 
-	pDeviceContext->VSSetShader(pVertexShader, nullptr, 0);
-	pDeviceContext->PSSetShader(pPixelShader, nullptr, 0);
-
-	RenderWavingGrid(20,20);
+	RenderWavingGrid(50,50);
 
 	// Present the back buffer to the screen.
 	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
@@ -188,13 +185,35 @@ void InstancedRendererEngine2D::CreateShaders()
 	ID3DBlob* psBlob = nullptr;
 	ID3DBlob* errorBlob = nullptr;
 
-	const wchar_t* vsFilePath = L"TextVertexShader.hlsl"; // Path to your HLSL file
+	const wchar_t* vsFilePath = L"SquareWaveVertexShader.hlsl"; // Create wave vertex shader
 
 	HRESULT hr = D3DCompileFromFile(vsFilePath, nullptr, nullptr, "main", "vs_5_0", 0, 0, &vsBlob, &errorBlob);
 	if(FAILED(hr))
 	{ 
 		SafeRelease(&errorBlob);
 		return; 
+	}
+	hr = pDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &waveVertexShader);
+	if(FAILED(hr))
+	{
+		SafeRelease(&vsBlob);
+		SafeRelease(&psBlob);
+		return;
+	}
+	
+	vsFilePath = L"TextVertexShader.hlsl"; // Create text vertex shader
+	hr = D3DCompileFromFile(vsFilePath, nullptr, nullptr, "main", "vs_5_0", 0, 0, &vsBlob, &errorBlob);
+	if(FAILED(hr))
+	{
+		SafeRelease(&errorBlob);
+		return;
+	}
+	hr = pDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &textVertexShader);
+	if(FAILED(hr))
+	{
+		SafeRelease(&vsBlob);
+		SafeRelease(&psBlob);
+		return;
 	}
 
 	const wchar_t* psFilePath = L"PlainPixelShader.hlsl"; // Path to your HLSL file
@@ -207,13 +226,7 @@ void InstancedRendererEngine2D::CreateShaders()
 		return;
 	}
 
-	hr = pDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &pVertexShader);
-	if(FAILED(hr))
-	{
-		SafeRelease(&vsBlob);
-		SafeRelease(&psBlob);
-		return;
-	}
+
 
 	hr = pDevice->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &pPixelShader);
 	if(FAILED(hr))
@@ -261,29 +274,34 @@ void InstancedRendererEngine2D::CreateBuffers()
 
 void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
 {
+
+	pDeviceContext->VSSetShader(waveVertexShader, nullptr, 0);
+	pDeviceContext->PSSetShader(pPixelShader, nullptr, 0);
+
 	int columns = gridWidth;
 	int rows = gridHeight;
 
-	float startRenderPos = 1.0f / columns;
+	float startRenderPosX = 1.0f / columns;
+	float startRenderPosY = 1.0f / rows;
 
+	float factor = startRenderPosX * 40.0f;
 	VertexInputData cbData;
 
-	cbData.objectPosX = 0.0f;
-	cbData.objectPosY = 0.0f;
 	cbData.aspectRatio = aspectRatioX;
-	cbData.size = (2 / startRenderPos) * startRenderPos * 0.95f; // -1 to 1 == 2 , 2 / by single element distance from 0 == total size over width, * single element == size per element
+	cbData.sizeX = factor * aspectRatioX; // -1 to 1 == 2 , 2 / by single element distance from 0 == total size over width, * single element == size per element
+	cbData.sizeY = factor; // -1 to 1 == 2 , 2 / by single element distance from 0 == total size over width, * single element == size per element
 	cbData.time = totalTime;
 	cbData.speed = 4.0f;
 
 	for(size_t i = 0; i < columns; i++)
 	{
 
-		cbData.objectPosX = startRenderPos * i;
+		cbData.objectPosX = startRenderPosX * i * aspectRatioX;
 		cbData.indexesX = i;
 
 		for(size_t j = 0; j < rows; j++)
 		{
-			cbData.objectPosY = startRenderPos * j;
+			cbData.objectPosY = startRenderPosX * j;
 			cbData.indexesY = j;
 
 			pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);

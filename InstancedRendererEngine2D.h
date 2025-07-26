@@ -52,7 +52,8 @@ class InstancedRendererEngine2D : public BaseRenderer
 		// for rendering triangles
 		ID3D11Buffer* pConstantBuffer;
 		ID3D11Buffer* pInstanceBuffer;
-		ID3D11VertexShader* pVertexShader;
+		ID3D11VertexShader* waveVertexShader;
+		ID3D11VertexShader* textVertexShader;
 		ID3D11PixelShader* pPixelShader;
 		ID3D11InputLayout* pInputLayout; // Used to define input variables for the shaders
 		std::vector<InstanceData> instances;
