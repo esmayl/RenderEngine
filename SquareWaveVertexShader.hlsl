@@ -4,7 +4,7 @@ cbuffer VertexInputData : register(b0)
 	float2 objectPos; // objectPosX and objectPosY from C++ map here
 	float aspectRatio;
 	float time;
-	float2 indexes;
+	int2 indexes;
 	float speed;
 }
 

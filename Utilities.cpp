@@ -17,8 +17,8 @@ std::vector<Block2D> Utilities::CreateBlocks(int totalWidth, int totalHeight, in
         for(int j = 0; j < rows; j++)
         {
             // Calculate the center position of the block
-            float centerX = i;
-            float centerY = j;
+            int centerX = i;
+            int centerY = j;
 
             // Create the block with the calculated position and size
             tempBlocks.push_back(Block2D(centerX, centerY, 0, 0, RandomGenerator::Generate()));

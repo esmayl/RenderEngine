@@ -59,8 +59,8 @@ void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int bloc
 	// Get the window's client area size to set the viewport.
 	RECT rc;
 	GetClientRect(windowHandle, &rc);
-	UINT width = rc.right - rc.left;
-	UINT height = rc.bottom - rc.top;
+	width = rc.right - rc.left;
+	height = rc.bottom - rc.top;
 	
 	//blocks = Utilities::CreateBlocks(width, height,width / blockWidth, height / blockHeight);
 
@@ -70,13 +70,13 @@ void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int bloc
 	CreateBuffers();
 }
 
-void InstancedRendererEngine2D::SetupViewport(UINT width, UINT height)
+void InstancedRendererEngine2D::SetupViewport(UINT newWidth, UINT newHeight)
 {
 	// Set up the viewport
 	D3D11_VIEWPORT vp = {};
 
-	vp.Width = (FLOAT)width;
-	vp.Height = (FLOAT)height;
+	vp.Width = (FLOAT)newWidth;
+	vp.Height = (FLOAT)newHeight;
 	vp.MinDepth = 0.0f;
 	vp.MaxDepth = 1.0f;
 	vp.TopLeftX = 0;
@@ -85,7 +85,7 @@ void InstancedRendererEngine2D::SetupViewport(UINT width, UINT height)
 	pDeviceContext->RSSetViewports(1, &vp);
 
 	// Used for correcting triangles to their original shape and ignoring the aspect ratio of the viewport
-	aspectRatioX = (height > 0) ? (FLOAT)height / (FLOAT)width : 1.0f;
+	aspectRatioX = (newHeight > 0) ? (FLOAT)newHeight / (FLOAT)newWidth : 1.0f;
 }
 
 void InstancedRendererEngine2D::InitRenderBufferAndTargetView(HRESULT& hr)
@@ -119,35 +119,64 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	pDeviceContext->ClearRenderTargetView(renderTargetView, clearColor); // Clear the back buffer.
 	pDeviceContext->IASetInputLayout(pInputLayout); // Setup input variables for the vertex shader like the vertex position
 
-	UINT stride = sizeof(Vertex);
-	UINT offset = 0;
-	
-	pDeviceContext->IASetVertexBuffers(0, 1, &square->renderingData->vertexBuffer, &stride, &offset);
-	pDeviceContext->IASetIndexBuffer(square->renderingData->indexBuffer, DXGI_FORMAT_R32_UINT, 0);
-
-	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // Define what primitive we should draw with the vertex and indices
-
-	RenderWavingGrid(30,10);
-
+	//RenderWavingGrid(20,20);
+	RenderFpsText(100,100);
 	// Present the back buffer to the screen.
 	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
 	// Change to 0 to disable V-Sync.
 	pSwapChain->Present(1, 0);
 }
 
-void InstancedRendererEngine2D::OnResize(int width, int height)
+void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos)
+{
+	UINT stride = sizeof(Vertex);
+	UINT offset = 0;
+
+	pDeviceContext->IASetVertexBuffers(0, 1, &square->renderingData->vertexBuffer, &stride, &offset);
+	pDeviceContext->IASetIndexBuffer(square->renderingData->indexBuffer, DXGI_FORMAT_R32_UINT, 0);
+
+	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // Define what primitive we should draw with the vertex and indices
+
+	pDeviceContext->VSSetShader(textVertexShader, nullptr, 0);
+	pDeviceContext->PSSetShader(pPixelShader, nullptr, 0);
+
+	size_t fpsTextLength = std::size(fpsText);
+	float fontWidth = 16.0f;
+	TextInputData cbData;
+	cbData.screenSize.x = width;
+	cbData.screenSize.y = height;
+
+	for(size_t i = 0; i < fpsTextLength; i++)
+	{
+		cbData.objectPos.x = (xPos + (fontWidth * i)) * aspectRatioX;
+		cbData.objectPos.y = yPos;
+
+		cbData.size.x = fontWidth;
+		cbData.size.y = fontWidth;
+
+		pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
+		pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
+
+		pDeviceContext->DrawIndexed(square->renderingData->indexCount, 0, 0);
+	}
+}
+
+void InstancedRendererEngine2D::OnResize(int newWidth, int newHeight)
 {
 	pDeviceContext->OMSetRenderTargets(0, 0, 0);
 	SafeRelease(&renderTargetView);
 
-	pSwapChain->ResizeBuffers(0, width, height, DXGI_FORMAT_UNKNOWN, 0);
+	pSwapChain->ResizeBuffers(0, newWidth, newHeight, DXGI_FORMAT_UNKNOWN, 0);
+
+	width = newWidth;
+	height = newHeight;
 
 	HRESULT hr = S_OK;
 	InitRenderBufferAndTargetView(hr);
 	
 	if(FAILED(hr)) return;
 
-	SetupViewport(width,height);
+	SetupViewport(newWidth, newHeight);
 }
 
 void InstancedRendererEngine2D::CountFps()
@@ -164,7 +193,7 @@ void InstancedRendererEngine2D::CountFps()
 	if(timeSinceFPSUpdate >= 1.0)
 	{
 		double currentFPS = framesSinceFPSUpdate / timeSinceFPSUpdate;
-		swprintf_s(fpsText, L"FPS: %.0f", currentFPS); // Update the global text buffer
+		swprintf_s(fpsText, L"FPS: %02.0f", currentFPS); // Update the global text buffer
 
 		// Reset for the next second
 		timeSinceFPSUpdate = 0.0;
@@ -175,6 +204,7 @@ void InstancedRendererEngine2D::CountFps()
 void InstancedRendererEngine2D::OnShutdown()
 {
 	delete square;
+	delete triangle;
 }
 
 
@@ -274,6 +304,13 @@ void InstancedRendererEngine2D::CreateBuffers()
 
 void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
 {
+	UINT stride = sizeof(Vertex);
+	UINT offset = 0;
+
+	pDeviceContext->IASetVertexBuffers(0, 1, &square->renderingData->vertexBuffer, &stride, &offset);
+	pDeviceContext->IASetIndexBuffer(square->renderingData->indexBuffer, DXGI_FORMAT_R32_UINT, 0);
+
+	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // Define what primitive we should draw with the vertex and indices
 
 	pDeviceContext->VSSetShader(waveVertexShader, nullptr, 0);
 	pDeviceContext->PSSetShader(pPixelShader, nullptr, 0);
@@ -284,7 +321,7 @@ void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
 	float startRenderPosX = 2.0f / columns;
 	float startRenderPosY = 2.0f / rows;
 
-	float factorX = startRenderPosX * 40.0f;
+	float factorX = startRenderPosX * 40.0f; // 40.0 is the factor based on the vertex pos 0.05f
 	float factorY = startRenderPosY * 40.0f;
 	VertexInputData cbData;
 
@@ -294,13 +331,13 @@ void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
 	cbData.time = totalTime;
 	cbData.speed = 4.0f;
 
-	for(size_t i = 0; i < columns; i++)
+	for(int i = 0; i < columns; i++)
 	{
 
 		cbData.objectPosX = startRenderPosX * i * aspectRatioX;
 		cbData.indexesX = i;
 
-		for(size_t j = 0; j < rows; j++)
+		for(int j = 0; j < rows; j++)
 		{
 			cbData.objectPosY = startRenderPosY * j;
 			cbData.indexesY = j;
@@ -308,7 +345,9 @@ void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
 			pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
 			pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
 
-			pDeviceContext->DrawIndexed(6, 0, 0);
+			pDeviceContext->DrawIndexed(square->renderingData->indexCount, 0, 0);
 		}
 	}
 }
+
+

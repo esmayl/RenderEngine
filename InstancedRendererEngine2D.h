@@ -11,6 +11,7 @@
 #include "BaseRenderer.h"
 #include "Vertex.h"
 #include "VertexInputData.h"
+#include "TextInputData.h"
 #include "InstanceData.h"
 #include "SquareMesh.h"
 #include "TriangleMesh.h"
@@ -26,9 +27,10 @@ class InstancedRendererEngine2D : public BaseRenderer
 		void SetupViewport(UINT width, UINT height);
 		void InitRenderBufferAndTargetView(HRESULT& hr);
 		void OnPaint(HWND windowHandle) override;
-		void RenderWavingGrid(int gridWidth, int gridHeight);
 		void OnResize(int width, int height) override;
 
+		void RenderWavingGrid(int gridWidth, int gridHeight);
+		void RenderFpsText(int xPos, int yPos);
 		void CountFps() override;
 		void OnShutdown() override;
 
@@ -38,7 +40,7 @@ class InstancedRendererEngine2D : public BaseRenderer
 		double deltaTime = 0;
 		double timeSinceFPSUpdate = 0.0;
 		int framesSinceFPSUpdate = 0;
-		wchar_t fpsText[20];
+		wchar_t fpsText[9];
 		float aspectRatioX;
 
 		std::vector<Block2D> blocks;
@@ -61,6 +63,8 @@ class InstancedRendererEngine2D : public BaseRenderer
 		int columns = 500;
 		int rows = 500;
 		float totalTime = 0.0f;
+		UINT width;
+		UINT height;
 
 		SquareMesh* square = nullptr;
 		TriangleMesh* triangle = nullptr;

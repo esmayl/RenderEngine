@@ -28,7 +28,7 @@ class RendererEngine2D : public BaseRenderer
 		double deltaTime = 0;
 		double timeSinceFPSUpdate = 0.0;
 		int framesSinceFPSUpdate = 0;
-		wchar_t fpsText[20];
+		wchar_t fpsText[9];
 
 		std::vector<Block2D> blocks;
 

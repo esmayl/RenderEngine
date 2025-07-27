@@ -5,9 +5,9 @@ TriangleMesh::TriangleMesh(ID3D11Device& pDevice)
 	renderingData = new Mesh();
 
 	Vertex vertices[] = {
-		{  0.0f,  0.05f, 0.0f },
+		{  0.0f,  0.0f, 0.0f },
 		{  0.05f, -0.05f, 0.0f },
-		{ -0.05f, -0.05f, 0.0f },
+		{  -0.05f, -0.05f, 0.0f },
 	};
 
 	// Create triangle indices

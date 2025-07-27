@@ -1,28 +1,30 @@
 cbuffer TextInputData : register(b0)
 {
-    float size;
+    float2 size;
     float2 objectPos;
-    float aspectRatio;
-    float2 uv;
+    float2 screenSize;
 }
 
 struct VS_OUTPUT
 {
-    float4 position : SV_POSITION; // Mandatory: Vertex position for rasterization
+    float4 position : SV_POSITION;
     float4 color : COLOR;
 };
 
 VS_OUTPUT main(float3 pos : POSITION)
 {
     VS_OUTPUT output;
-    pos.x *= size;
-    pos.y *= size;
+    pos.x *= size.x; // scale vertex to scale the whole triangle
+    pos.y *= size.y;
+
+    pos.x += objectPos.x / screenSize.x;
     
-    pos.x += (objectPos.x * 2.0f) - 1.0f; // convert from normal 0,1 to weird -1 ,1
-    pos.y += 1.0f - (objectPos.y * 2.0f);
+    pos.x = (pos.x * 2.0f) - 1.0f; // convert from normal 0,1 to weird -1 ,1
+    pos.y += 1.0f - (objectPos.y / screenSize.y);
 		
     output.position = float4(pos, 1.0f);
-    output.color = float4(0.0f, 0.0f, 0.0, 1.0f); // Black color? 
+	
+    output.color = float4(1.0f, 1.0f, 1.0f, 1.0f); // Black to Blue, fully opaque
 	
     return output;
 };

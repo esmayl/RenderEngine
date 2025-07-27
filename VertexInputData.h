@@ -7,8 +7,8 @@ struct VertexInputData
 	float objectPosY; // 4 bytes
 	float aspectRatio;
 	float time;
-	float indexesX;
-	float indexesY;
+	int indexesX;
+	int indexesY;
 	float speed;
 	float padding;
 	float padding2;

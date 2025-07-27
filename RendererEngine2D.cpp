@@ -120,7 +120,6 @@ void RendererEngine2D::OnPaint(HWND windowHandle)
 
 			if(hr >= 0)
 			{
-				D2D1_RECT_F edgeRect;
 				int sinnedY;
 				int edgeFlags = EDGE_RAISED;
 				for(size_t i = 0; i < blocks.size(); i++)
@@ -156,7 +155,7 @@ void RendererEngine2D::OnPaint(HWND windowHandle)
 		}
 		//Utilities::CustomDrawText(backBufferHdc, fpsText);
 
-		renderTarget->DrawTextW(fpsText, wcslen(fpsText), textFormat, textRect, pBrush);
+		renderTarget->DrawTextW(fpsText, (UINT32)wcslen(fpsText), textFormat, textRect, pBrush);
 		hr = renderTarget->EndDraw();
 
 		if(FAILED(hr) || hr == D2DERR_RECREATE_TARGET)
