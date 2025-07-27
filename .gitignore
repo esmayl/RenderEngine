@@ -3,3 +3,4 @@
 *.filters
 x64/
 bin/
+vcpkg_installed/

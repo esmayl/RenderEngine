@@ -15,6 +15,7 @@
 #include "InstanceData.h"
 #include "SquareMesh.h"
 #include "TriangleMesh.h"
+#include "Font.h"
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -68,7 +69,9 @@ class InstancedRendererEngine2D : public BaseRenderer
 
 		SquareMesh* square = nullptr;
 		TriangleMesh* triangle = nullptr;
+		Font* font = nullptr;
 
 		void CreateShaders();
 		void CreateBuffers();
+		void CreateFonts();
 };

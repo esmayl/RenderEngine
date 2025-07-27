@@ -68,6 +68,7 @@ void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int bloc
 
 	CreateShaders();
 	CreateBuffers();
+	CreateFonts();
 }
 
 void InstancedRendererEngine2D::SetupViewport(UINT newWidth, UINT newHeight)
@@ -119,7 +120,7 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	pDeviceContext->ClearRenderTargetView(renderTargetView, clearColor); // Clear the back buffer.
 	pDeviceContext->IASetInputLayout(pInputLayout); // Setup input variables for the vertex shader like the vertex position
 
-	//RenderWavingGrid(20,20);
+	RenderWavingGrid(20,20);
 	RenderFpsText(100,100);
 	// Present the back buffer to the screen.
 	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
@@ -140,20 +141,21 @@ void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos)
 	pDeviceContext->VSSetShader(textVertexShader, nullptr, 0);
 	pDeviceContext->PSSetShader(pPixelShader, nullptr, 0);
 
-	size_t fpsTextLength = wcslen(fpsText);
 	float fontWidth = 32.0f;
+	float padding = 4.0f;
+
 	TextInputData cbData;
 	cbData.screenSize.x = width;
 	cbData.screenSize.y = height;
-	float padding = 4.0f;
+	cbData.size.x = fontWidth;
+	cbData.size.y = fontWidth;
+	cbData.objectPos.y = yPos;
 
+	size_t fpsTextLength = wcslen(fpsText);
+	
 	for(size_t i = 0; i < fpsTextLength; i++)
 	{
 		cbData.objectPos.x = xPos + i * (fontWidth + padding);
-		cbData.objectPos.y = yPos;
-
-		cbData.size.x = fontWidth;
-		cbData.size.y = fontWidth;
 
 		pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
 		pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
@@ -301,6 +303,13 @@ void InstancedRendererEngine2D::CreateBuffers()
 	HRESULT hr = pDevice->CreateBuffer(&bd, nullptr, &pConstantBuffer);
 
 	if(FAILED(hr)) return;
+}
+
+void InstancedRendererEngine2D::CreateFonts()
+{
+	font = new Font();
+	font->LoadFonts("testFont.fnt");
+	int temp = font->GetCharacterCount();
 }
 
 void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
