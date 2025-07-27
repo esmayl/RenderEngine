@@ -140,15 +140,16 @@ void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos)
 	pDeviceContext->VSSetShader(textVertexShader, nullptr, 0);
 	pDeviceContext->PSSetShader(pPixelShader, nullptr, 0);
 
-	size_t fpsTextLength = std::size(fpsText);
-	float fontWidth = 16.0f;
+	size_t fpsTextLength = wcslen(fpsText);
+	float fontWidth = 32.0f;
 	TextInputData cbData;
 	cbData.screenSize.x = width;
 	cbData.screenSize.y = height;
+	float padding = 4.0f;
 
 	for(size_t i = 0; i < fpsTextLength; i++)
 	{
-		cbData.objectPos.x = (xPos + (fontWidth * i)) * aspectRatioX;
+		cbData.objectPos.x = xPos + i * (fontWidth + padding);
 		cbData.objectPos.y = yPos;
 
 		cbData.size.x = fontWidth;
