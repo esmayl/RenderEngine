@@ -60,6 +60,7 @@ class InstancedRendererEngine2D : public BaseRenderer
 		ID3D11PixelShader* pPixelShader;
 		ID3D11InputLayout* pInputLayout; // Used to define input variables for the shaders
 		std::vector<InstanceData> instances;
+		ID3D11SamplerState* textureSamplerState;
 
 		int columns = 500;
 		int rows = 500;
@@ -73,5 +74,5 @@ class InstancedRendererEngine2D : public BaseRenderer
 
 		void CreateShaders();
 		void CreateBuffers();
-		void CreateFonts();
+		void CreateFonts(ID3D11Device* device);
 };

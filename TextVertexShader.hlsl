@@ -3,12 +3,15 @@ cbuffer TextInputData : register(b0)
     float2 size;
     float2 objectPos;
     float2 screenSize;
+    float2 uvOffset;
+    float2 uvScale;
 }
 
 struct VS_OUTPUT
 {
     float4 position : SV_POSITION;
     float4 color : COLOR;
+    float2 uv : TEXCOORD0;
 };
 
 VS_OUTPUT main(float3 pos : POSITION)
@@ -28,8 +31,7 @@ VS_OUTPUT main(float3 pos : POSITION)
     pos.y += 1.0f - objectPos.y * pixelHeight;
 		
     output.position = float4(pos, 1.0f);
-	
     output.color = float4(1.0f, 1.0f, 1.0f, 1.0f); // Black to Blue, fully opaque
-	
+
     return output;
 };

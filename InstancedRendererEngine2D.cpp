@@ -68,7 +68,7 @@ void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int bloc
 
 	CreateShaders();
 	CreateBuffers();
-	CreateFonts();
+	CreateFonts(pDevice);
 }
 
 void InstancedRendererEngine2D::SetupViewport(UINT newWidth, UINT newHeight)
@@ -136,6 +136,10 @@ void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos)
 	pDeviceContext->IASetVertexBuffers(0, 1, &square->renderingData->vertexBuffer, &stride, &offset);
 	pDeviceContext->IASetIndexBuffer(square->renderingData->indexBuffer, DXGI_FORMAT_R32_UINT, 0);
 
+	ID3D11ShaderResourceView* pTexture = font->GetTexture();
+	pDeviceContext->PSSetShaderResources(0, 1, &pTexture); // Binds to register t0 in HLSL
+	pDeviceContext->PSSetSamplers(0, 1, &textureSamplerState);
+
 	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // Define what primitive we should draw with the vertex and indices
 
 	pDeviceContext->VSSetShader(textVertexShader, nullptr, 0);
@@ -147,15 +151,24 @@ void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos)
 	TextInputData cbData;
 	cbData.screenSize.x = width;
 	cbData.screenSize.y = height;
-	cbData.size.x = fontWidth;
-	cbData.size.y = fontWidth;
 	cbData.objectPos.y = yPos;
+	cbData.size.x = font->GetCharacterSize();
+	cbData.size.y = font->GetCharacterSize();
 
 	size_t fpsTextLength = wcslen(fpsText);
-	
+	FontCharDescription fontDesc;
+
 	for(size_t i = 0; i < fpsTextLength; i++)
 	{
+		fontDesc = font->GetFontCharacter(fpsText[i]);
+
 		cbData.objectPos.x = xPos + i * (fontWidth + padding);
+		
+		cbData.uvOffset.x = (float)fontDesc.x / fontDesc.width;
+		cbData.uvOffset.y = (float)fontDesc.y / fontDesc.height;
+		cbData.uvScale.x = (float)fontDesc.width / fontDesc.width;
+		cbData.uvScale.y = (float)fontDesc.height / fontDesc.height;
+
 
 		pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
 		pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
@@ -272,7 +285,8 @@ void InstancedRendererEngine2D::CreateShaders()
 
 	// Create a POSITION variable that is 32 bits per rgb value and is per vertex
 	D3D11_INPUT_ELEMENT_DESC layout[] = {
-		D3D11_INPUT_ELEMENT_DESC{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 }
+		D3D11_INPUT_ELEMENT_DESC{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		D3D11_INPUT_ELEMENT_DESC{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 	};
 	hr = pDevice->CreateInputLayout(layout, ARRAYSIZE(layout), vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &pInputLayout);
 
@@ -302,14 +316,25 @@ void InstancedRendererEngine2D::CreateBuffers()
 
 	HRESULT hr = pDevice->CreateBuffer(&bd, nullptr, &pConstantBuffer);
 
+	D3D11_SAMPLER_DESC samplerDesc = {};
+	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR; // Use linear filtering for smooth scaling
+	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;samplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+	samplerDesc.MinLOD = 0;
+	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+
+	hr = pDevice->CreateSamplerState(&samplerDesc, &textureSamplerState);
+
 	if(FAILED(hr)) return;
 }
 
-void InstancedRendererEngine2D::CreateFonts()
+void InstancedRendererEngine2D::CreateFonts(ID3D11Device* device)
 {
 	font = new Font();
 	font->LoadFonts("testFont.fnt");
 	int temp = font->GetCharacterCount();
+	font->LoadTexture(device);
 }
 
 void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
