@@ -41,7 +41,7 @@ class InstancedRendererEngine2D : public BaseRenderer
 		double deltaTime = 0;
 		double timeSinceFPSUpdate = 0.0;
 		int framesSinceFPSUpdate = 0;
-		wchar_t fpsText[9];
+		wchar_t fpsText[256];
 		float aspectRatioX;
 
 		std::vector<Block2D> blocks;

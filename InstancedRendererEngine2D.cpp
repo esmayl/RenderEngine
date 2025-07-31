@@ -141,12 +141,12 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	pDeviceContext->ClearRenderTargetView(renderTargetView, clearColor); // Clear the back buffer.
 	pDeviceContext->IASetInputLayout(pInputLayout); // Setup input variables for the vertex shader like the vertex position
 
-	RenderWavingGrid(20,20);
+	RenderWavingGrid(100,100);
 	RenderFpsText(100,100);
 	// Present the back buffer to the screen.
 	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
 	// Change to 0 to disable V-Sync.
-	pSwapChain->Present(1, 0);
+	pSwapChain->Present(0, 0);
 }
 
 void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos)
@@ -235,7 +235,7 @@ void InstancedRendererEngine2D::CountFps()
 	if(timeSinceFPSUpdate >= 1.0)
 	{
 		double currentFPS = framesSinceFPSUpdate / timeSinceFPSUpdate;
-		swprintf_s(fpsText, L"FPS: %02.0f", currentFPS); // Update the global text buffer
+		swprintf_s(fpsText, L"FPS: %03.0f", currentFPS); // Update the global text buffer
 
 		// Reset for the next second
 		timeSinceFPSUpdate = 0.0;
