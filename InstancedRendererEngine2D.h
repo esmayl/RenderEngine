@@ -58,6 +58,7 @@ class InstancedRendererEngine2D : public BaseRenderer
 		ID3D11VertexShader* waveVertexShader;
 		ID3D11VertexShader* textVertexShader;
 		ID3D11PixelShader* pPixelShader;
+		ID3D11PixelShader* textPixelShader;
 		ID3D11InputLayout* pInputLayout; // Used to define input variables for the shaders
 		std::vector<InstanceData> instances;
 		ID3D11SamplerState* textureSamplerState;

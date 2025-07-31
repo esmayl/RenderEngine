@@ -79,18 +79,11 @@ void Font::LoadFonts(const char* fontFileName)
     {
         FontCharDescription fontDescription;
 
-        int x,y;
-
         pChar->QueryIntAttribute("id",&fontDescription.id);
         pChar->QueryIntAttribute("x", &fontDescription.x);
         pChar->QueryIntAttribute("y", &fontDescription.y);
-        pChar->QueryIntAttribute("width", &fontDescription.id);
-        pChar->QueryIntAttribute("height", &fontDescription.id);
-        pChar->QueryIntAttribute("xoffset", &x);
-        pChar->QueryIntAttribute("yoffset", &y);
-
-        fontDescription.x += x; // Just add / subtract the offset to make it easier to work with
-        fontDescription.y += y; // Just add / subtract the offset to make it easier to work with
+        pChar->QueryIntAttribute("width", &fontDescription.width);
+        pChar->QueryIntAttribute("height", &fontDescription.height);
 
         fontCharacters[fontDescription.id] = fontDescription;
 
@@ -204,7 +197,7 @@ void Font::LoadTexture(ID3D11Device* pDevice)
         std::vector<BYTE> pixels(bufferSize);
 
      
-        pFrame->CopyPixels(nullptr,
+        converter->CopyPixels(nullptr,
             stride,
             bufferSize,
             pixels.data()

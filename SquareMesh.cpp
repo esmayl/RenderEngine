@@ -5,10 +5,10 @@ SquareMesh::SquareMesh(ID3D11Device& pDevice)
 	renderingData = new Mesh();
 
 	Vertex vertices[] = {
-		{  0.0f,  0.0f, 0.0f }, // Top-left
-		{  0.05f,  0.0f, 0.0f }, // Top-right
-		{  0.0f, -0.05f, 0.0f }, // Bottom-left
-		{  0.05f, -0.05f, 0.0f }  // Bottom-right
+		{  0.0f,  0.0f, 0.0f , 0.0f, 0.0f }, // Top-left
+		{  0.05f,  0.0f, 0.0f , 1.0f, 0.0f }, // Top-right
+		{  0.0f, -0.05f, 0.0f , 0.0f, 1.0f }, // Bottom-left
+		{  0.05f, -0.05f, 0.0f , 1.0f, 1.0f }  // Bottom-right
 	};
 
 	// Create triangle indices

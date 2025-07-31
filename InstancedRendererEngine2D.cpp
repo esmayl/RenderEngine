@@ -98,6 +98,27 @@ void InstancedRendererEngine2D::InitRenderBufferAndTargetView(HRESULT& hr)
 	if(FAILED(hr)) return;
 
 	pDeviceContext->OMSetRenderTargets(1, &renderTargetView, nullptr);
+
+	// Setup alpha blending
+	D3D11_BLEND_DESC bsDesc = {};
+	bsDesc.AlphaToCoverageEnable = FALSE;
+	bsDesc.IndependentBlendEnable = FALSE;
+	bsDesc.RenderTarget[0].BlendEnable = TRUE;
+	bsDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+	bsDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+	bsDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+	bsDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+	bsDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+	bsDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+	bsDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+
+	ID3D11BlendState* pBlendState = nullptr;
+	hr = pDevice->CreateBlendState(&bsDesc, &pBlendState);
+	if(FAILED(hr)) throw std::runtime_error("Failed to create blend state");
+
+	float blendFactor[4] = { 0,0,0,0 };
+	UINT  sampleMask = 0xFFFFFFFF;
+	pDeviceContext->OMSetBlendState(pBlendState, blendFactor, sampleMask);
 }
 
 void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
@@ -138,12 +159,12 @@ void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos)
 
 	ID3D11ShaderResourceView* pTexture = font->GetTexture();
 	pDeviceContext->PSSetShaderResources(0, 1, &pTexture); // Binds to register t0 in HLSL
-	pDeviceContext->PSSetSamplers(0, 1, &textureSamplerState);
+	pDeviceContext->PSSetSamplers(0, 1, &textureSamplerState); // Binds to s0
 
 	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // Define what primitive we should draw with the vertex and indices
 
 	pDeviceContext->VSSetShader(textVertexShader, nullptr, 0);
-	pDeviceContext->PSSetShader(pPixelShader, nullptr, 0);
+	pDeviceContext->PSSetShader(textPixelShader, nullptr, 0);
 
 	float fontWidth = 32.0f;
 	float padding = 4.0f;
@@ -157,6 +178,7 @@ void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos)
 
 	size_t fpsTextLength = wcslen(fpsText);
 	FontCharDescription fontDesc;
+	Vector2D textureSize = font->GetTextureSize();
 
 	for(size_t i = 0; i < fpsTextLength; i++)
 	{
@@ -164,10 +186,14 @@ void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos)
 
 		cbData.objectPos.x = xPos + i * (fontWidth + padding);
 		
-		cbData.uvOffset.x = (float)fontDesc.x / fontDesc.width;
-		cbData.uvOffset.y = (float)fontDesc.y / fontDesc.height;
-		cbData.uvScale.x = (float)fontDesc.width / fontDesc.width;
-		cbData.uvScale.y = (float)fontDesc.height / fontDesc.height;
+		cbData.uvOffset.x = (float)fontDesc.x / textureSize.x;
+		cbData.uvOffset.y = (float)fontDesc.y / textureSize.y;
+
+		float u1 = (fontDesc.x + fontDesc.width) / textureSize.x;
+		float v1 = (fontDesc.y + fontDesc.height) / textureSize.y;
+
+		cbData.uvScale.x = u1 - cbData.uvOffset.x;
+		cbData.uvScale.y = v1 - cbData.uvOffset.y;
 
 
 		pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
@@ -283,6 +309,26 @@ void InstancedRendererEngine2D::CreateShaders()
 		return;
 	}
 
+	psFilePath = L"TextPixelShader.hlsl"; // Path to your HLSL file
+	hr = D3DCompileFromFile(psFilePath, nullptr, nullptr, "main", "ps_5_0", 0, 0, &psBlob, &errorBlob);
+	if(FAILED(hr))
+	{
+		SafeRelease(&vsBlob);
+		SafeRelease(&errorBlob);
+		return;
+	}
+
+
+
+	hr = pDevice->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &textPixelShader);
+	if(FAILED(hr))
+	{
+		SafeRelease(&vsBlob);
+		SafeRelease(&psBlob);
+
+		return;
+	}
+
 	// Create a POSITION variable that is 32 bits per rgb value and is per vertex
 	D3D11_INPUT_ELEMENT_DESC layout[] = {
 		D3D11_INPUT_ELEMENT_DESC{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
@@ -317,10 +363,11 @@ void InstancedRendererEngine2D::CreateBuffers()
 	HRESULT hr = pDevice->CreateBuffer(&bd, nullptr, &pConstantBuffer);
 
 	D3D11_SAMPLER_DESC samplerDesc = {};
-	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR; // Use linear filtering for smooth scaling
+	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT; // Use linear filtering for smooth scaling
 	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
 	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
-	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;samplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
+	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+	samplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
 	samplerDesc.MinLOD = 0;
 	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 
