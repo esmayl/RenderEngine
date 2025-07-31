@@ -142,7 +142,7 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	pDeviceContext->IASetInputLayout(pInputLayout); // Setup input variables for the vertex shader like the vertex position
 
 	RenderWavingGrid(100,100);
-	RenderFpsText(100,100);
+	RenderFpsText(50,50);
 	// Present the back buffer to the screen.
 	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
 	// Change to 0 to disable V-Sync.
@@ -167,7 +167,6 @@ void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos)
 	pDeviceContext->PSSetShader(textPixelShader, nullptr, 0);
 
 	float fontWidth = 32.0f;
-	float padding = 4.0f;
 
 	TextInputData cbData;
 	cbData.screenSize.x = width;
@@ -184,7 +183,7 @@ void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos)
 	{
 		fontDesc = font->GetFontCharacter(fpsText[i]);
 
-		cbData.objectPos.x = xPos + i * (fontWidth + padding);
+		cbData.objectPos.x = xPos + i * fontWidth;
 		
 		cbData.uvOffset.x = (float)fontDesc.x / textureSize.x;
 		cbData.uvOffset.y = (float)fontDesc.y / textureSize.y;

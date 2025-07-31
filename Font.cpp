@@ -79,6 +79,8 @@ void Font::LoadFonts(const char* fontFileName)
     {
         FontCharDescription fontDescription;
 
+        int x,y;
+
         pChar->QueryIntAttribute("id",&fontDescription.id);
         pChar->QueryIntAttribute("x", &fontDescription.x);
         pChar->QueryIntAttribute("y", &fontDescription.y);
