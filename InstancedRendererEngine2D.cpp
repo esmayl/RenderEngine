@@ -142,14 +142,14 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	pDeviceContext->IASetInputLayout(pInputLayout); // Setup input variables for the vertex shader like the vertex position
 
 	RenderWavingGrid(100,100);
-	RenderFpsText(50,50);
+	RenderFpsText(50, 50, 32);
 	// Present the back buffer to the screen.
 	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
 	// Change to 0 to disable V-Sync.
 	pSwapChain->Present(0, 0);
 }
 
-void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos)
+void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos, int fontSize)
 {
 	UINT stride = sizeof(Vertex);
 	UINT offset = 0;
@@ -166,14 +166,14 @@ void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos)
 	pDeviceContext->VSSetShader(textVertexShader, nullptr, 0);
 	pDeviceContext->PSSetShader(textPixelShader, nullptr, 0);
 
-	float fontWidth = 32.0f;
-
 	TextInputData cbData;
 	cbData.screenSize.x = width;
 	cbData.screenSize.y = height;
 	cbData.objectPos.y = yPos;
-	cbData.size.x = font->GetCharacterSize();
-	cbData.size.y = font->GetCharacterSize();
+
+	Vector4D fontPadding = font->GetPadding();
+	cbData.size.x = fontSize;
+	cbData.size.y = fontSize;
 
 	size_t fpsTextLength = wcslen(fpsText);
 	FontCharDescription fontDesc;
@@ -183,16 +183,16 @@ void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos)
 	{
 		fontDesc = font->GetFontCharacter(fpsText[i]);
 
-		cbData.objectPos.x = xPos + i * fontWidth;
-		
-		cbData.uvOffset.x = (float)fontDesc.x / textureSize.x;
-		cbData.uvOffset.y = (float)fontDesc.y / textureSize.y;
+		cbData.objectPos.x = xPos + i * cbData.size.x;
+				
+		cbData.uvOffset.x = ((float)fontDesc.x - fontPadding.x) / textureSize.x;
+		cbData.uvOffset.y = ((float)fontDesc.y - fontPadding.y) / textureSize.y;
 
-		float u1 = (fontDesc.x + fontDesc.width) / textureSize.x;
-		float v1 = (fontDesc.y + fontDesc.height) / textureSize.y;
+		float u1 = (fontDesc.x + fontPadding.z + fontDesc.width) / textureSize.x;
+		float v1 = (fontDesc.y + fontPadding.w + fontDesc.height) / textureSize.y;
 
-		cbData.uvScale.x = u1 - cbData.uvOffset.x;
-		cbData.uvScale.y = v1 - cbData.uvOffset.y;
+		cbData.uvScale.x = u1 - cbData.uvOffset.x ;
+		cbData.uvScale.y = v1 - cbData.uvOffset.y ;
 
 
 		pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
@@ -234,7 +234,7 @@ void InstancedRendererEngine2D::CountFps()
 	if(timeSinceFPSUpdate >= 1.0)
 	{
 		double currentFPS = framesSinceFPSUpdate / timeSinceFPSUpdate;
-		swprintf_s(fpsText, L"FPS: %03.0f", currentFPS); // Update the global text buffer
+		swprintf_s(fpsText, L"FPS:%03.0f", currentFPS); // Update the global text buffer
 
 		// Reset for the next second
 		timeSinceFPSUpdate = 0.0;
@@ -362,7 +362,7 @@ void InstancedRendererEngine2D::CreateBuffers()
 	HRESULT hr = pDevice->CreateBuffer(&bd, nullptr, &pConstantBuffer);
 
 	D3D11_SAMPLER_DESC samplerDesc = {};
-	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT; // Use linear filtering for smooth scaling
+	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR; // Use linear filtering for smooth scaling
 	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
 	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
 	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;

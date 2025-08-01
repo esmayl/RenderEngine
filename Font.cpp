@@ -25,10 +25,29 @@ void Font::LoadFonts(const char* fontFileName)
     const char* newFontName = nullptr;
     fontInfo->QueryStringAttribute("face", &newFontName);
     fontName = std::string(newFontName);
+
+
     
     fontInfo->QueryIntAttribute("size", &characterSize);
     fontInfo->QueryBoolAttribute("bold", &bold);
     fontInfo->QueryBoolAttribute("italic", &italic);
+
+    newFontName = nullptr;
+    fontInfo->QueryStringAttribute("padding", &newFontName);
+    std::vector<std::string> stringArray;
+    
+    std::istringstream ss(newFontName);
+    std::string token;
+    while(std::getline(ss, token, ','))
+    {
+        // optionally trim whitespace here
+        stringArray.push_back(token);
+    }
+
+    padding.x = std::stoi(stringArray[3]);
+    padding.y = std::stoi(stringArray[0]);
+    padding.z = std::stoi(stringArray[1]);
+    padding.w = std::stoi(stringArray[2]);
 
     // Get the <common> element.
     tinyxml2::XMLElement* fontCommon = font->FirstChildElement("common");
@@ -86,6 +105,8 @@ void Font::LoadFonts(const char* fontFileName)
         pChar->QueryIntAttribute("y", &fontDescription.y);
         pChar->QueryIntAttribute("width", &fontDescription.width);
         pChar->QueryIntAttribute("height", &fontDescription.height);
+        pChar->QueryIntAttribute("xoffset", &fontDescription.xOffset);
+        pChar->QueryIntAttribute("yoffset", &fontDescription.yOffset);
 
         fontCharacters[fontDescription.id] = fontDescription;
 
@@ -98,6 +119,11 @@ FontCharDescription Font::GetFontCharacter(char character)
 {
     int asciiValue = character;
     return fontCharacters[asciiValue];
+}
+
+Vector4D Font::GetPadding()
+{
+    return padding;
 }
 
 int Font::GetCharacterSize()

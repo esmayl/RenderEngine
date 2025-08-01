@@ -6,9 +6,12 @@
 #include <stdexcept>
 #include <wincodec.h>
 #include <d3d11.h>
+#include <sstream>
+#include <iostream>
 
 #include "FontCharDescription.h"
 #include "Vector2D.h"
+#include "Vector4D.h"
 
 #pragma comment(lib, "d3d11.lib")
 
@@ -19,6 +22,7 @@ class Font
 		void LoadFonts(const char* newTextureFileName);
 		FontCharDescription GetFontCharacter(char character);
 		
+		Vector4D GetPadding();
 		int GetCharacterSize();
 		int GetCharacterCount();
 		int GetLineHeight();
@@ -38,6 +42,7 @@ class Font
 		bool bold;
 		bool italic;		
 		
+		Vector4D padding;
 		int characterSize;
 		int characterCount;
 		int lineHeight;

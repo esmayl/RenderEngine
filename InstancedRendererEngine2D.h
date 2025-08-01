@@ -31,7 +31,7 @@ class InstancedRendererEngine2D : public BaseRenderer
 		void OnResize(int width, int height) override;
 
 		void RenderWavingGrid(int gridWidth, int gridHeight);
-		void RenderFpsText(int xPos, int yPos);
+		void RenderFpsText(int xPos, int yPos, int fontSize);
 		void CountFps() override;
 		void OnShutdown() override;
 

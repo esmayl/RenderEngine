@@ -7,5 +7,7 @@ class FontCharDescription
 		int y;
 		int width;
 		int height;
+		int xOffset;
+		int yOffset;
 };
 
