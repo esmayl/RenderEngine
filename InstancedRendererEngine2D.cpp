@@ -141,7 +141,8 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	pDeviceContext->ClearRenderTargetView(renderTargetView, clearColor); // Clear the back buffer.
 	pDeviceContext->IASetInputLayout(pInputLayout); // Setup input variables for the vertex shader like the vertex position
 
-	RenderWavingGrid(100,100);
+	RenderWavingGrid(300,150);
+
 	RenderFpsText(50, 50, 32);
 	// Present the back buffer to the screen.
 	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
@@ -412,23 +413,30 @@ void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
 	cbData.time = totalTime;
 	cbData.speed = 4.0f;
 
-	for(int i = 0; i < columns; i++)
-	{
+	cbData.gridX = gridWidth;
+	cbData.gridY = gridHeight;
 
-		cbData.objectPosX = startRenderPosX * i * aspectRatioX;
-		cbData.indexesX = i;
+	pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
+	pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
+	pDeviceContext->DrawIndexedInstanced(square->renderingData->indexCount,gridWidth * gridHeight,0,0,0);
 
-		for(int j = 0; j < rows; j++)
-		{
-			cbData.objectPosY = startRenderPosY * j;
-			cbData.indexesY = j;
+	//for(int i = 0; i < columns; i++)
+	//{
 
-			pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
-			pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
+	//	cbData.objectPosX = startRenderPosX * i * aspectRatioX;
+	//	cbData.indexesX = i;
 
-			pDeviceContext->DrawIndexed(square->renderingData->indexCount, 0, 0);
-		}
-	}
+	//	for(int j = 0; j < rows; j++)
+	//	{
+	//		cbData.objectPosY = startRenderPosY * j;
+	//		cbData.indexesY = j;
+
+	//		pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
+	//		pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
+
+	//		pDeviceContext->DrawIndexed(square->renderingData->indexCount, 0, 0);
+	//	}
+	//}
 }
 
 

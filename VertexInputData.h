@@ -10,7 +10,7 @@ struct VertexInputData
 	int indexesX;
 	int indexesY;
 	float speed;
-	float padding;
-	float padding2;
+	int gridX;
+	int gridY;
 	float padding3;
 }; // Total needs to be multiples of 16 bytes otherwise buffer cannot be created
