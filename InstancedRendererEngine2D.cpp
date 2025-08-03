@@ -67,8 +67,9 @@ void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int bloc
 	SetupViewport(width, height);
 
 	CreateShaders();
-	CreateBuffers();
 	CreateFonts(pDevice);
+	CreateInstanceList();
+	CreateBuffers();
 }
 
 void InstancedRendererEngine2D::SetupViewport(UINT newWidth, UINT newHeight)
@@ -139,68 +140,14 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	const float clearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f }; // A nice blue
 
 	pDeviceContext->ClearRenderTargetView(renderTargetView, clearColor); // Clear the back buffer.
-	pDeviceContext->IASetInputLayout(pInputLayout); // Setup input variables for the vertex shader like the vertex position
 
-	RenderWavingGrid(300,150);
-
+	//RenderWavingGrid(300,150);
+	RenderFlock(1000);
 	RenderFpsText(50, 50, 32);
 	// Present the back buffer to the screen.
 	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
 	// Change to 0 to disable V-Sync.
 	pSwapChain->Present(0, 0);
-}
-
-void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos, int fontSize)
-{
-	UINT stride = sizeof(Vertex);
-	UINT offset = 0;
-
-	pDeviceContext->IASetVertexBuffers(0, 1, &square->renderingData->vertexBuffer, &stride, &offset);
-	pDeviceContext->IASetIndexBuffer(square->renderingData->indexBuffer, DXGI_FORMAT_R32_UINT, 0);
-
-	ID3D11ShaderResourceView* pTexture = font->GetTexture();
-	pDeviceContext->PSSetShaderResources(0, 1, &pTexture); // Binds to register t0 in HLSL
-	pDeviceContext->PSSetSamplers(0, 1, &textureSamplerState); // Binds to s0
-
-	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // Define what primitive we should draw with the vertex and indices
-
-	pDeviceContext->VSSetShader(textVertexShader, nullptr, 0);
-	pDeviceContext->PSSetShader(textPixelShader, nullptr, 0);
-
-	TextInputData cbData;
-	cbData.screenSize.x = width;
-	cbData.screenSize.y = height;
-	cbData.objectPos.y = yPos;
-
-	Vector4D fontPadding = font->GetPadding();
-	cbData.size.x = fontSize;
-	cbData.size.y = fontSize;
-
-	size_t fpsTextLength = wcslen(fpsText);
-	FontCharDescription fontDesc;
-	Vector2D textureSize = font->GetTextureSize();
-
-	for(size_t i = 0; i < fpsTextLength; i++)
-	{
-		fontDesc = font->GetFontCharacter(fpsText[i]);
-
-		cbData.objectPos.x = xPos + i * cbData.size.x;
-				
-		cbData.uvOffset.x = ((float)fontDesc.x - fontPadding.x) / textureSize.x;
-		cbData.uvOffset.y = ((float)fontDesc.y - fontPadding.y) / textureSize.y;
-
-		float u1 = (fontDesc.x + fontPadding.z + fontDesc.width) / textureSize.x;
-		float v1 = (fontDesc.y + fontPadding.w + fontDesc.height) / textureSize.y;
-
-		cbData.uvScale.x = u1 - cbData.uvOffset.x ;
-		cbData.uvScale.y = v1 - cbData.uvOffset.y ;
-
-
-		pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
-		pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
-
-		pDeviceContext->DrawIndexed(square->renderingData->indexCount, 0, 0);
-	}
 }
 
 void InstancedRendererEngine2D::OnResize(int newWidth, int newHeight)
@@ -252,80 +199,46 @@ void InstancedRendererEngine2D::OnShutdown()
 
 void InstancedRendererEngine2D::CreateShaders()
 {
-	// --- Compile and Create Shaders ---
+	HRESULT hr = S_FALSE;
+
+	const wchar_t* shaderFilePath = L"SquareWaveVertexShader.hlsl"; // Create wave vertex shader
+	if(!CreateVertexShader(hr, shaderFilePath, &waveVertexShader)){
+		return;
+	};
+
+	shaderFilePath = L"TextVertexShader.hlsl"; // Create text vertex shader
+	if(!CreateVertexShader(hr, shaderFilePath, &textVertexShader))
+	{
+		return;
+	};
+
+	shaderFilePath = L"FlockVertexShader.hlsl";
+	if(!CreateVertexShader(hr, shaderFilePath, &flockVertexShader))
+	{
+		return;
+	};
+
+	shaderFilePath = L"PlainPixelShader.hlsl"; // Path to your HLSL file
+	if(!CreatePixelShader(hr, shaderFilePath, &plainPixelShader))
+	{
+		return;
+	};
+
+	shaderFilePath = L"TextPixelShader.hlsl"; // Path to your HLSL file
+	if(!CreatePixelShader(hr, shaderFilePath, &textPixelShader))
+	{
+		return;
+	};
+
+
 	ID3DBlob* vsBlob = nullptr;
-	ID3DBlob* psBlob = nullptr;
 	ID3DBlob* errorBlob = nullptr;
 
-	const wchar_t* vsFilePath = L"SquareWaveVertexShader.hlsl"; // Create wave vertex shader
-
-	HRESULT hr = D3DCompileFromFile(vsFilePath, nullptr, nullptr, "main", "vs_5_0", 0, 0, &vsBlob, &errorBlob);
-	if(FAILED(hr))
-	{ 
-		SafeRelease(&errorBlob);
-		return; 
-	}
-	hr = pDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &waveVertexShader);
-	if(FAILED(hr))
-	{
-		SafeRelease(&vsBlob);
-		SafeRelease(&psBlob);
-		return;
-	}
-	
-	vsFilePath = L"TextVertexShader.hlsl"; // Create text vertex shader
-	hr = D3DCompileFromFile(vsFilePath, nullptr, nullptr, "main", "vs_5_0", 0, 0, &vsBlob, &errorBlob);
+	// For now just use the TextVertexShader to make the input the same for all shaders, just used to fill vsBlob
+	hr = D3DCompileFromFile(L"TextVertexShader.hlsl", nullptr, nullptr, "main", "vs_5_0", 0, 0, &vsBlob, &errorBlob);
 	if(FAILED(hr))
 	{
 		SafeRelease(&errorBlob);
-		return;
-	}
-	hr = pDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, &textVertexShader);
-	if(FAILED(hr))
-	{
-		SafeRelease(&vsBlob);
-		SafeRelease(&psBlob);
-		return;
-	}
-
-	const wchar_t* psFilePath = L"PlainPixelShader.hlsl"; // Path to your HLSL file
-
-	hr = D3DCompileFromFile(psFilePath, nullptr, nullptr, "main", "ps_5_0", 0, 0, &psBlob, &errorBlob);
-	if(FAILED(hr))
-	{
-		SafeRelease(&vsBlob);
-		SafeRelease(&errorBlob);
-		return;
-	}
-
-
-
-	hr = pDevice->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &pPixelShader);
-	if(FAILED(hr))
-	{
-		SafeRelease(&vsBlob);
-		SafeRelease(&psBlob);
-
-		return;
-	}
-
-	psFilePath = L"TextPixelShader.hlsl"; // Path to your HLSL file
-	hr = D3DCompileFromFile(psFilePath, nullptr, nullptr, "main", "ps_5_0", 0, 0, &psBlob, &errorBlob);
-	if(FAILED(hr))
-	{
-		SafeRelease(&vsBlob);
-		SafeRelease(&errorBlob);
-		return;
-	}
-
-
-
-	hr = pDevice->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, &textPixelShader);
-	if(FAILED(hr))
-	{
-		SafeRelease(&vsBlob);
-		SafeRelease(&psBlob);
-
 		return;
 	}
 
@@ -333,18 +246,98 @@ void InstancedRendererEngine2D::CreateShaders()
 	D3D11_INPUT_ELEMENT_DESC layout[] = {
 		D3D11_INPUT_ELEMENT_DESC{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		D3D11_INPUT_ELEMENT_DESC{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		D3D11_INPUT_ELEMENT_DESC{"INSTANCEPOS", 0, DXGI_FORMAT_R32G32_FLOAT, 1, 0, D3D11_INPUT_PER_INSTANCE_DATA, 1 },
 	};
 	hr = pDevice->CreateInputLayout(layout, ARRAYSIZE(layout), vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &pInputLayout);
 
-	SafeRelease(&vsBlob);
-	SafeRelease(&psBlob);
-
 	if(FAILED(hr))
 	{
+		SafeRelease(&errorBlob);
 		return;
 	}
 
+	// For now just use the TextVertexShader to make the input the same for all shaders, just used to fill vsBlob
+	hr = D3DCompileFromFile(L"FlockVertexShader.hlsl", nullptr, nullptr, "main", "vs_5_0", 0, 0, &vsBlob, &errorBlob);
+	if(FAILED(hr))
+	{
+		SafeRelease(&errorBlob);
+		return;
+	}
 
+	// This layout ONLY describes what the flock shader needs.
+	D3D11_INPUT_ELEMENT_DESC flockLayout[] = {
+		// Data from the Vertex Buffer (Slot 0)
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+
+		// Data from the Instance Buffer (Slot 1)
+		{ "INSTANCEPOS", 0, DXGI_FORMAT_R32G32_FLOAT, 1, 0, D3D11_INPUT_PER_INSTANCE_DATA, 1 }
+	};
+
+	hr = pDevice->CreateInputLayout(
+		flockLayout,
+		ARRAYSIZE(flockLayout),
+		vsBlob->GetBufferPointer(),
+		vsBlob->GetBufferSize(),
+		&flockInputLayout // Create the dedicated layout
+	);
+
+	if(FAILED(hr))
+	{
+		SafeRelease(&vsBlob);
+		SafeRelease(&errorBlob);
+		return;
+	}
+
+	SafeRelease(&vsBlob);
+	SafeRelease(&errorBlob);
+}
+
+bool InstancedRendererEngine2D::CreateVertexShader(HRESULT& hr, const wchar_t* vsFilePath, ID3D11VertexShader** vertexShader)
+{
+	ID3DBlob* vsBlob = nullptr;
+	ID3DBlob* errorBlob = nullptr;
+
+	hr = D3DCompileFromFile(vsFilePath, nullptr, nullptr, "main", "vs_5_0", 0, 0, &vsBlob, &errorBlob);
+	if(FAILED(hr))
+	{
+		SafeRelease(&errorBlob);
+		return false;
+	}
+	hr = pDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, vertexShader);
+	if(FAILED(hr))
+	{
+		SafeRelease(&vsBlob);
+		return false;
+	}
+
+	SafeRelease(&vsBlob);
+	SafeRelease(&errorBlob);
+
+	return true;
+}
+
+bool InstancedRendererEngine2D::CreatePixelShader(HRESULT& hr, const wchar_t* psFilePath, ID3D11PixelShader** pixelShader)
+{
+	ID3DBlob* psBlob = nullptr;
+	ID3DBlob* errorBlob = nullptr;
+
+	hr = D3DCompileFromFile(psFilePath, nullptr, nullptr, "main", "ps_5_0", 0, 0, &psBlob, &errorBlob);
+	if(FAILED(hr))
+	{
+		SafeRelease(&errorBlob);
+		return false;
+	}
+	hr = pDevice->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, pixelShader);
+	if(FAILED(hr))
+	{
+		SafeRelease(&psBlob);
+		return false;
+	}
+
+	SafeRelease(&psBlob);
+	SafeRelease(&errorBlob);
+
+	return true;
 }
 
 void InstancedRendererEngine2D::CreateBuffers()
@@ -374,14 +367,39 @@ void InstancedRendererEngine2D::CreateBuffers()
 	hr = pDevice->CreateSamplerState(&samplerDesc, &textureSamplerState);
 
 	if(FAILED(hr)) return;
+
+	// Create instance buffer based on the instances vector
+	D3D11_BUFFER_DESC instanceBufferDesc = {};
+	instanceBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+	instanceBufferDesc.ByteWidth = sizeof(InstanceData) * instances.size();
+	instanceBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER; // Instance buffers are bound as vertex buffers
+	instanceBufferDesc.CPUAccessFlags = 0; // No flags set
+
+	D3D11_SUBRESOURCE_DATA instanceData = {};
+	instanceData.pSysMem = instances.data(); // Assing the created data to the subresource
+
+	hr = pDevice->CreateBuffer(&instanceBufferDesc, &instanceData, &instanceBuffer);
+
+	if(FAILED(hr)) return;
 }
 
 void InstancedRendererEngine2D::CreateFonts(ID3D11Device* device)
 {
 	font = new Font();
 	font->LoadFonts("testFont.fnt");
-	int temp = font->GetCharacterCount();
 	font->LoadTexture(device);
+}
+
+void InstancedRendererEngine2D::CreateInstanceList()
+{
+	UINT instanceCount = 1000;
+
+	instances.reserve(instanceCount);
+
+	for(int i = 0; i < instanceCount; ++i)
+	{
+		instances.push_back({ RandomGenerator::Generate(-1.0f,1.0f), RandomGenerator::Generate(-1.0f,1.0f) });
+	}
 }
 
 void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
@@ -395,7 +413,7 @@ void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
 	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // Define what primitive we should draw with the vertex and indices
 
 	pDeviceContext->VSSetShader(waveVertexShader, nullptr, 0);
-	pDeviceContext->PSSetShader(pPixelShader, nullptr, 0);
+	pDeviceContext->PSSetShader(plainPixelShader, nullptr, 0);
 
 	int columns = gridWidth;
 	int rows = gridHeight;
@@ -419,24 +437,87 @@ void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
 	pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
 	pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
 	pDeviceContext->DrawIndexedInstanced(square->renderingData->indexCount,gridWidth * gridHeight,0,0,0);
-
-	//for(int i = 0; i < columns; i++)
-	//{
-
-	//	cbData.objectPosX = startRenderPosX * i * aspectRatioX;
-	//	cbData.indexesX = i;
-
-	//	for(int j = 0; j < rows; j++)
-	//	{
-	//		cbData.objectPosY = startRenderPosY * j;
-	//		cbData.indexesY = j;
-
-	//		pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
-	//		pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
-
-	//		pDeviceContext->DrawIndexed(square->renderingData->indexCount, 0, 0);
-	//	}
-	//}
 }
 
+void InstancedRendererEngine2D::RenderFlock(int instanceCount)
+{
+	UINT strides[] = { sizeof(Vertex), sizeof(InstanceData) };
+	UINT offsets[] = { 0, 0 };
+
+
+	ID3D11Buffer* buffers[] = { square->renderingData->vertexBuffer, instanceBuffer };
+
+	pDeviceContext->IASetVertexBuffers(0, 2, buffers, strides, offsets); // Pass in the first element of the stride and offsets array and method will iterate over 2 elements
+	pDeviceContext->IASetIndexBuffer(square->renderingData->indexBuffer, DXGI_FORMAT_R32_UINT, 0);
+	pDeviceContext->IASetInputLayout(flockInputLayout); // Setup input variables for the vertex shader like the vertex position
+
+	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // Define what primitive we should draw with the vertex and indices
+
+	pDeviceContext->VSSetShader(flockVertexShader, nullptr, 0);
+	pDeviceContext->PSSetShader(plainPixelShader, nullptr, 0);
+
+	VertexInputData cbData;
+
+	cbData.aspectRatio = aspectRatioX;
+	cbData.time = totalTime;
+	cbData.speed = 4.0f;
+
+	pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
+	pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
+	pDeviceContext->DrawIndexedInstanced(square->renderingData->indexCount, instanceCount, 0, 0, 0);
+}
+
+void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos, int fontSize)
+{
+	UINT stride = sizeof(Vertex);
+	UINT offset = 0;
+
+	pDeviceContext->IASetVertexBuffers(0, 1, &square->renderingData->vertexBuffer, &stride, &offset);
+	pDeviceContext->IASetIndexBuffer(square->renderingData->indexBuffer, DXGI_FORMAT_R32_UINT, 0);
+	pDeviceContext->IASetInputLayout(pInputLayout); // Setup input variables for the vertex shader like the vertex position
+
+	ID3D11ShaderResourceView* pTexture = font->GetTexture();
+	pDeviceContext->PSSetShaderResources(0, 1, &pTexture); // Binds to register t0 in HLSL
+	pDeviceContext->PSSetSamplers(0, 1, &textureSamplerState); // Binds to s0
+
+	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // Define what primitive we should draw with the vertex and indices
+
+	pDeviceContext->VSSetShader(textVertexShader, nullptr, 0);
+	pDeviceContext->PSSetShader(textPixelShader, nullptr, 0);
+
+	TextInputData cbData;
+	cbData.screenSize.x = width;
+	cbData.screenSize.y = height;
+	cbData.objectPos.y = yPos;
+
+	Vector4D fontPadding = font->GetPadding();
+	cbData.size.x = fontSize;
+	cbData.size.y = fontSize;
+
+	size_t fpsTextLength = wcslen(fpsText);
+	FontCharDescription fontDesc;
+	Vector2D textureSize = font->GetTextureSize();
+
+	for(size_t i = 0; i < fpsTextLength; i++)
+	{
+		fontDesc = font->GetFontCharacter(fpsText[i]);
+
+		cbData.objectPos.x = xPos + i * cbData.size.x;
+
+		cbData.uvOffset.x = ((float)fontDesc.x - fontPadding.x) / textureSize.x;
+		cbData.uvOffset.y = ((float)fontDesc.y - fontPadding.y) / textureSize.y;
+
+		float u1 = (fontDesc.x + fontPadding.z + fontDesc.width) / textureSize.x;
+		float v1 = (fontDesc.y + fontPadding.w + fontDesc.height) / textureSize.y;
+
+		cbData.uvScale.x = u1 - cbData.uvOffset.x;
+		cbData.uvScale.y = v1 - cbData.uvOffset.y;
+
+
+		pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
+		pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
+
+		pDeviceContext->DrawIndexed(square->renderingData->indexCount, 0, 0);
+	}
+}
 

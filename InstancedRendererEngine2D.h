@@ -31,6 +31,7 @@ class InstancedRendererEngine2D : public BaseRenderer
 		void OnResize(int width, int height) override;
 
 		void RenderWavingGrid(int gridWidth, int gridHeight);
+		void RenderFlock(int instanceCount);
 		void RenderFpsText(int xPos, int yPos, int fontSize);
 		void CountFps() override;
 		void OnShutdown() override;
@@ -42,7 +43,6 @@ class InstancedRendererEngine2D : public BaseRenderer
 		double timeSinceFPSUpdate = 0.0;
 		int framesSinceFPSUpdate = 0;
 		wchar_t fpsText[256];
-		float aspectRatioX;
 
 		std::vector<Block2D> blocks;
 
@@ -50,30 +50,34 @@ class InstancedRendererEngine2D : public BaseRenderer
 		ID3D11DeviceContext* pDeviceContext;
 		IDXGISwapChain* pSwapChain;
 		ID3D11RenderTargetView* renderTargetView;
-		ID3D11Texture2D* pBackBuffer; // Maybe not needed?
+		ID3D11Texture2D* pBackBuffer;
 
-		// for rendering triangles
+		// for rendering
 		ID3D11Buffer* pConstantBuffer;
-		ID3D11Buffer* pInstanceBuffer;
 		ID3D11VertexShader* waveVertexShader;
 		ID3D11VertexShader* textVertexShader;
-		ID3D11PixelShader* pPixelShader;
+		ID3D11VertexShader* flockVertexShader;
+		ID3D11PixelShader* plainPixelShader;
 		ID3D11PixelShader* textPixelShader;
 		ID3D11InputLayout* pInputLayout; // Used to define input variables for the shaders
+		ID3D11InputLayout* flockInputLayout; // Used to define input variables for the shaders
 		std::vector<InstanceData> instances;
+		ID3D11Buffer* instanceBuffer;
 		ID3D11SamplerState* textureSamplerState;
 
-		int columns = 500;
-		int rows = 500;
 		float totalTime = 0.0f;
 		UINT width;
 		UINT height;
+		float aspectRatioX;
 
 		SquareMesh* square = nullptr;
 		TriangleMesh* triangle = nullptr;
 		Font* font = nullptr;
 
 		void CreateShaders();
+		bool CreateVertexShader(HRESULT& hr, const wchar_t* vsFilePath, ID3D11VertexShader** vertexShader);
+		bool CreatePixelShader(HRESULT& hr, const wchar_t* psFilePath, ID3D11PixelShader** pixelShader);
 		void CreateBuffers();
 		void CreateFonts(ID3D11Device* device);
+		void CreateInstanceList();
 };

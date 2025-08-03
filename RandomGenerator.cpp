@@ -1,6 +1,6 @@
 #include "RandomGenerator.h"
 
-float RandomGenerator::Generate()
+float RandomGenerator::Generate(float min, float max)
 {
 	// 1. A hardware-based seed generator (the best source of true randomness)
 	std::random_device rd;
@@ -10,7 +10,7 @@ float RandomGenerator::Generate()
 
 	// 3. A distribution to produce floating-point numbers in a specific range.
 	//    We'll generate a random phase offset between 0 and 1.
-	std::uniform_real_distribution<float> distrib(1.0f, 2.0f);
+	std::uniform_real_distribution<float> distrib(min, max);
 
 	return distrib(gen);
 }

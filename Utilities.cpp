@@ -21,7 +21,7 @@ std::vector<Block2D> Utilities::CreateBlocks(int totalWidth, int totalHeight, in
             int centerY = j;
 
             // Create the block with the calculated position and size
-            tempBlocks.push_back(Block2D(centerX, centerY, 0, 0, RandomGenerator::Generate()));
+            tempBlocks.push_back(Block2D(centerX, centerY, 0, 0, RandomGenerator::Generate(1.0f , 2.0f)));
         }
     }
 
