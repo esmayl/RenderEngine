@@ -200,55 +200,52 @@ void InstancedRendererEngine2D::OnShutdown()
 void InstancedRendererEngine2D::CreateShaders()
 {
 	HRESULT hr = S_FALSE;
+	ID3DBlob* textVsBlob = nullptr;
+	ID3DBlob* flockVsBlob = nullptr;
+	ID3DBlob* errorBlob = nullptr;
 
-	const wchar_t* shaderFilePath = L"SquareWaveVertexShader.hlsl"; // Create wave vertex shader
-	if(!CreateVertexShader(hr, shaderFilePath, &waveVertexShader)){
+	const wchar_t* shaderFilePath = L"SquareWaveVertexShader.cso"; // Create wave vertex shader
+	if(!CreateVertexShader(hr, shaderFilePath, &waveVertexShader,nullptr)){
 		return;
 	};
 
-	shaderFilePath = L"TextVertexShader.hlsl"; // Create text vertex shader
-	if(!CreateVertexShader(hr, shaderFilePath, &textVertexShader))
+	shaderFilePath = L"TextVertexShader.cso"; // Create text vertex shader
+	if(!CreateVertexShader(hr, shaderFilePath, &textVertexShader,&textVsBlob))
 	{
 		return;
 	};
 
-	shaderFilePath = L"FlockVertexShader.hlsl";
-	if(!CreateVertexShader(hr, shaderFilePath, &flockVertexShader))
+	shaderFilePath = L"FlockVertexShader.cso";
+	if(!CreateVertexShader(hr, shaderFilePath, &flockVertexShader, &flockVsBlob))
 	{
 		return;
 	};
 
-	shaderFilePath = L"PlainPixelShader.hlsl"; // Path to your HLSL file
+	shaderFilePath = L"PlainPixelShader.cso"; // Path to your HLSL file
 	if(!CreatePixelShader(hr, shaderFilePath, &plainPixelShader))
 	{
 		return;
 	};
 
-	shaderFilePath = L"TextPixelShader.hlsl"; // Path to your HLSL file
+	shaderFilePath = L"TextPixelShader.cso"; // Path to your HLSL file
 	if(!CreatePixelShader(hr, shaderFilePath, &textPixelShader))
 	{
 		return;
 	};
 
 
-	ID3DBlob* vsBlob = nullptr;
-	ID3DBlob* errorBlob = nullptr;
-
-	// For now just use the TextVertexShader to make the input the same for all shaders, just used to fill vsBlob
-	hr = D3DCompileFromFile(L"TextVertexShader.hlsl", nullptr, nullptr, "main", "vs_5_0", 0, 0, &vsBlob, &errorBlob);
-	if(FAILED(hr))
-	{
-		SafeRelease(&errorBlob);
-		return;
-	}
-
-	// Create a POSITION variable that is 32 bits per rgb value and is per vertex
+	// Used by the TextVertexShader and SquareWaveShader
 	D3D11_INPUT_ELEMENT_DESC layout[] = {
 		D3D11_INPUT_ELEMENT_DESC{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		D3D11_INPUT_ELEMENT_DESC{"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		D3D11_INPUT_ELEMENT_DESC{"INSTANCEPOS", 0, DXGI_FORMAT_R32G32_FLOAT, 1, 0, D3D11_INPUT_PER_INSTANCE_DATA, 1 },
 	};
-	hr = pDevice->CreateInputLayout(layout, ARRAYSIZE(layout), vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), &pInputLayout);
+
+	hr = pDevice->CreateInputLayout(layout,
+		ARRAYSIZE(layout),
+		textVsBlob->GetBufferPointer(),
+		textVsBlob->GetBufferSize(),
+		&pInputLayout);
 
 	if(FAILED(hr))
 	{
@@ -256,86 +253,65 @@ void InstancedRendererEngine2D::CreateShaders()
 		return;
 	}
 
-	// For now just use the TextVertexShader to make the input the same for all shaders, just used to fill vsBlob
-	hr = D3DCompileFromFile(L"FlockVertexShader.hlsl", nullptr, nullptr, "main", "vs_5_0", 0, 0, &vsBlob, &errorBlob);
-	if(FAILED(hr))
-	{
-		SafeRelease(&errorBlob);
-		return;
-	}
 
 	// This layout ONLY describes what the flock shader needs.
 	D3D11_INPUT_ELEMENT_DESC flockLayout[] = {
 		// Data from the Vertex Buffer (Slot 0)
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-
-		// Data from the Instance Buffer (Slot 1)
 		{ "INSTANCEPOS", 0, DXGI_FORMAT_R32G32_FLOAT, 1, 0, D3D11_INPUT_PER_INSTANCE_DATA, 1 }
 	};
 
 	hr = pDevice->CreateInputLayout(
 		flockLayout,
 		ARRAYSIZE(flockLayout),
-		vsBlob->GetBufferPointer(),
-		vsBlob->GetBufferSize(),
+		flockVsBlob->GetBufferPointer(),
+		flockVsBlob->GetBufferSize(),
 		&flockInputLayout // Create the dedicated layout
 	);
 
 	if(FAILED(hr))
 	{
-		SafeRelease(&vsBlob);
+		SafeRelease(&textVsBlob);
 		SafeRelease(&errorBlob);
 		return;
 	}
 
-	SafeRelease(&vsBlob);
+	SafeRelease(&textVsBlob);
 	SafeRelease(&errorBlob);
 }
 
-bool InstancedRendererEngine2D::CreateVertexShader(HRESULT& hr, const wchar_t* vsFilePath, ID3D11VertexShader** vertexShader)
+bool InstancedRendererEngine2D::CreateVertexShader(HRESULT& hr, const wchar_t* vsFilePath, ID3D11VertexShader** vertexShader, ID3DBlob** vsBlob)
 {
-	ID3DBlob* vsBlob = nullptr;
-	ID3DBlob* errorBlob = nullptr;
+	// Already compiled by msbuild
+	std::vector<char> compiledShader = ReadShaderBinary(vsFilePath);
 
-	hr = D3DCompileFromFile(vsFilePath, nullptr, nullptr, "main", "vs_5_0", 0, 0, &vsBlob, &errorBlob);
+	hr = pDevice->CreateVertexShader(compiledShader.data(), compiledShader.size(), nullptr, vertexShader);
 	if(FAILED(hr))
 	{
-		SafeRelease(&errorBlob);
-		return false;
-	}
-	hr = pDevice->CreateVertexShader(vsBlob->GetBufferPointer(), vsBlob->GetBufferSize(), nullptr, vertexShader);
-	if(FAILED(hr))
-	{
-		SafeRelease(&vsBlob);
 		return false;
 	}
 
-	SafeRelease(&vsBlob);
-	SafeRelease(&errorBlob);
+	// Create a blob for the passed in blob pointer pointer
+	hr = D3DCreateBlob(compiledShader.size(), vsBlob);
+	if(SUCCEEDED(hr))
+	{
+		// Using memcpy_s as practice
+		memcpy_s((*vsBlob)->GetBufferPointer(),compiledShader.size(),compiledShader.data(),compiledShader.size());
+	}
 
 	return true;
 }
 
 bool InstancedRendererEngine2D::CreatePixelShader(HRESULT& hr, const wchar_t* psFilePath, ID3D11PixelShader** pixelShader)
 {
-	ID3DBlob* psBlob = nullptr;
-	ID3DBlob* errorBlob = nullptr;
+	// Already compiled by msbuild
+	std::vector<char> compiledShader = ReadShaderBinary(psFilePath);
 
-	hr = D3DCompileFromFile(psFilePath, nullptr, nullptr, "main", "ps_5_0", 0, 0, &psBlob, &errorBlob);
+	hr = pDevice->CreatePixelShader(compiledShader.data(), compiledShader.size(), nullptr, pixelShader);
 	if(FAILED(hr))
-	{
-		SafeRelease(&errorBlob);
+	{;
 		return false;
 	}
-	hr = pDevice->CreatePixelShader(psBlob->GetBufferPointer(), psBlob->GetBufferSize(), nullptr, pixelShader);
-	if(FAILED(hr))
-	{
-		SafeRelease(&psBlob);
-		return false;
-	}
-
-	SafeRelease(&psBlob);
-	SafeRelease(&errorBlob);
 
 	return true;
 }
@@ -401,6 +377,29 @@ void InstancedRendererEngine2D::CreateInstanceList()
 	{
 		instances.push_back({ RandomGenerator::Generate(-1.0f,1.0f), RandomGenerator::Generate(-1.0f,1.0f) });
 	}
+}
+
+std::vector<char> InstancedRendererEngine2D::ReadShaderBinary(const wchar_t* filePath)
+{
+	std::ifstream inputStream(filePath,std::ios::binary | std::ios::ate);
+
+	if(!inputStream.is_open())
+	{
+		throw std::runtime_error("Failed to load shader binary");
+	}
+
+	std::streamsize fileSize = inputStream.tellg();
+	std::vector<char> fileData(fileSize);
+
+	inputStream.seekg(0, std::ios::beg);
+
+	if(!inputStream.read(fileData.data(), fileSize))
+	{
+		throw std::runtime_error("Failed to read shader binary");
+	}
+
+
+	return fileData;
 }
 
 void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)

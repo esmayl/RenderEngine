@@ -26,8 +26,9 @@ struct VS_OUTPUT
 VS_OUTPUT main(VsInput input)
 {
     VS_OUTPUT output;
-        
-    float3 finalPos = input.pos + float3(input.instancePos, 0.0f);
+    float3 castedInstancePos = float3(input.instancePos, 0.0f);
+    float3 finalPos = input.pos + castedInstancePos;
+    
     output.position = float4(finalPos, 1.0f);
     output.color = float4(0.0f, 1.0f, 0.0f, 1.0f);
 	return output;
