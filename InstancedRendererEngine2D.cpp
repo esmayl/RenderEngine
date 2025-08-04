@@ -354,6 +354,7 @@ void InstancedRendererEngine2D::CreateBuffers()
 	bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 
 	HRESULT hr = pDevice->CreateBuffer(&bd, nullptr, &pConstantBuffer);
+	hr = pDevice->CreateBuffer(&bd, nullptr, &flockConstantBuffer);
 
 	D3D11_SAMPLER_DESC samplerDesc = {};
 	samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR; // Use linear filtering for smooth scaling
@@ -444,10 +445,10 @@ void InstancedRendererEngine2D::RenderFlock(int instanceCount)
 	UINT strides[] = { sizeof(Vertex), sizeof(InstanceData) };
 	UINT offsets[] = { 0, 0 };
 
-
 	ID3D11Buffer* buffers[] = { square->renderingData->vertexBuffer, instanceBuffer };
 
-	pDeviceContext->IASetVertexBuffers(0, 2, buffers, strides, offsets); // Pass in the first element of the stride and offsets array and method will iterate over 2 elements
+	// Setting the input layout to pass in instance position created on the cpu
+	pDeviceContext->IASetVertexBuffers(0, 2, buffers, strides, offsets);
 	pDeviceContext->IASetIndexBuffer(square->renderingData->indexBuffer, DXGI_FORMAT_R32_UINT, 0);
 	pDeviceContext->IASetInputLayout(flockInputLayout); // Setup input variables for the vertex shader like the vertex position
 
@@ -462,7 +463,7 @@ void InstancedRendererEngine2D::RenderFlock(int instanceCount)
 	cbData.time = totalTime;
 	cbData.speed = 4.0f;
 
-	pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
+	pDeviceContext->UpdateSubresource(flockConstantBuffer, 0, nullptr, &cbData, 0, 0);
 	pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
 	pDeviceContext->DrawIndexedInstanced(square->renderingData->indexCount, instanceCount, 0, 0, 0);
 }

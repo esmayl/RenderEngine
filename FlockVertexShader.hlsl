@@ -1,10 +1,12 @@
-cbuffer TextInputData : register(b0)
+cbuffer VertexInputData : register(b0)
 {
     float2 size;
-    float2 objectPos;
-    float2 screenSize;
-    float2 uvOffset;
-    float2 uvScale;
+    float2 objectPos; // objectPosX and objectPosY from C++ map here
+    float aspectRatio;
+    float time;
+    int2 indexes;
+    float speed;
+    int2 grid;
 }
 
 struct VsInput
@@ -27,6 +29,6 @@ VS_OUTPUT main(VsInput input)
         
     float3 finalPos = input.pos + float3(input.instancePos, 0.0f);
     output.position = float4(finalPos, 1.0f);
-    output.color = float4(1.0f, 1.0f, 1.0f, 1.0f);
+    output.color = float4(0.0f, 1.0f, 0.0f, 1.0f);
 	return output;
 }

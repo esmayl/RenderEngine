@@ -54,6 +54,7 @@ class InstancedRendererEngine2D : public BaseRenderer
 
 		// for rendering
 		ID3D11Buffer* pConstantBuffer;
+		ID3D11Buffer* flockConstantBuffer;
 		ID3D11VertexShader* waveVertexShader;
 		ID3D11VertexShader* textVertexShader;
 		ID3D11VertexShader* flockVertexShader;
