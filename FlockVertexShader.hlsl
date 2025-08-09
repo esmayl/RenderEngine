@@ -26,10 +26,24 @@ struct VS_OUTPUT
 VS_OUTPUT main(VsInput input)
 {
     VS_OUTPUT output;
-    float3 castedInstancePos = float3(input.instancePos, 0.0f);
-    float3 finalPos = input.pos + castedInstancePos;
+    float2 targetPos = float2(0, 0);
+    float targetDistance = distance(input.instancePos, targetPos);
     
-    output.position = float4(finalPos, 1.0f);
-    output.color = float4(0.0f, 1.0f, 0.0f, 1.0f);
+    float2 direction = -normalize(input.instancePos);
+    
+    float t = saturate(time / speed);
+    
+    float2 movedInst = lerp(input.instancePos, float2(0, 0), t);
+
+    
+    //float calculatedSpeed = speed * time;
+    //calculatedSpeed = min(calculatedSpeed, targetDistance);
+    
+    //float2 movedInstancePos = input.instancePos * (1 - t);
+    
+    float2 finalPos = input.pos.xy - movedInst;
+    
+    output.position = float4(finalPos, 0.0f, 1.0f);
+    output.color = float4(input.instanceId, 0.0f, 0.0f, 1.0f);
 	return output;
 }

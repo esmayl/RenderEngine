@@ -147,7 +147,7 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	// Present the back buffer to the screen.
 	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
 	// Change to 0 to disable V-Sync.
-	pSwapChain->Present(0, 0);
+	pSwapChain->Present(1, 0);
 }
 
 void InstancedRendererEngine2D::OnResize(int newWidth, int newHeight)
@@ -460,10 +460,10 @@ void InstancedRendererEngine2D::RenderFlock(int instanceCount)
 
 	cbData.aspectRatio = aspectRatioX;
 	cbData.time = totalTime;
-	cbData.speed = 4.0f;
+	cbData.speed = 10.0f;
 
 	pDeviceContext->UpdateSubresource(flockConstantBuffer, 0, nullptr, &cbData, 0, 0);
-	pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
+	pDeviceContext->VSSetConstantBuffers(0, 1, &flockConstantBuffer); // Actually pass the variables to the vertex shader
 	pDeviceContext->DrawIndexedInstanced(square->renderingData->indexCount, instanceCount, 0, 0, 0);
 }
 
