@@ -87,4 +87,5 @@ class InstancedRendererEngine2D : public BaseRenderer
 		std::vector<char> ReadShaderBinary(const wchar_t* filePath);
 
 		Vector2D flockTarget;
+		Vector2D previousFlockTarget;
 };

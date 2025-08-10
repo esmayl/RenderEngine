@@ -18,6 +18,11 @@ struct VertexInputData
 
 	float targetPosX;
 	float targetPosY;
+	float orbitDistance;
+	float jitter;
+
+	float previousTargetPosX;
+	float previousTargetPosY;
 	float padding2;
 	float padding3;
 }; // Total needs to be multiples of 16 bytes otherwise buffer cannot be created

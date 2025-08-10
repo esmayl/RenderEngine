@@ -87,7 +87,7 @@ void InstancedRendererEngine2D::SetupViewport(UINT newWidth, UINT newHeight)
 	pDeviceContext->RSSetViewports(1, &vp);
 
 	// Used for correcting triangles to their original shape and ignoring the aspect ratio of the viewport
-	aspectRatioX = (newHeight > 0) ? (FLOAT)newHeight / (FLOAT)newWidth : 1.0f;
+	aspectRatioX = (newHeight > 0) ? (FLOAT)newWidth / (FLOAT)newHeight : 1.0f;
 }
 
 void InstancedRendererEngine2D::InitRenderBufferAndTargetView(HRESULT& hr)
@@ -142,7 +142,7 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	pDeviceContext->ClearRenderTargetView(renderTargetView, clearColor); // Clear the back buffer.
 
 	//RenderWavingGrid(300,150);
-	RenderFlock(1000);
+	RenderFlock(50);
 	RenderFpsText(50, 50, 32);
 	// Present the back buffer to the screen.
 	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
@@ -198,6 +198,7 @@ void InstancedRendererEngine2D::OnShutdown()
 
 void InstancedRendererEngine2D::SetFlockTarget(float x, float y)
 {
+	previousFlockTarget = flockTarget;
 	flockTarget.x = (x/width * 2.0f) - 1.0f;
 	flockTarget.y = 1.0f - (y/height * 2.0f);
 }
@@ -469,6 +470,8 @@ void InstancedRendererEngine2D::RenderFlock(int instanceCount)
 	cbData.speed = 0.5f;
 	cbData.targetPosX = flockTarget.x;
 	cbData.targetPosY = flockTarget.y;
+	cbData.orbitDistance = 0.2f;
+	cbData.jitter = 0.00025f;
 
 	pDeviceContext->UpdateSubresource(flockConstantBuffer, 0, nullptr, &cbData, 0, 0);
 	pDeviceContext->VSSetConstantBuffers(0, 1, &flockConstantBuffer); // Actually pass the variables to the vertex shader
