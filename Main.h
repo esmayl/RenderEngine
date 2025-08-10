@@ -2,6 +2,7 @@
 #include <ostream>
 #include <iostream>
 #include <windows.h>
+#include <Windowsx.h> 
 #include <windef.h>
 #include <thread>   // For std::this_thread::sleep_for
 

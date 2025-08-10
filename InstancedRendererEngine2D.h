@@ -37,6 +37,8 @@ class InstancedRendererEngine2D : public BaseRenderer
 		void CountFps() override;
 		void OnShutdown() override;
 
+		void SetFlockTarget(float x,float y);
+
 	private:
 		std::chrono::time_point<std::chrono::steady_clock> startTime;
 		std::chrono::time_point<std::chrono::steady_clock> lastFrameTime;
@@ -83,4 +85,6 @@ class InstancedRendererEngine2D : public BaseRenderer
 		void CreateFonts(ID3D11Device* device);
 		void CreateInstanceList();
 		std::vector<char> ReadShaderBinary(const wchar_t* filePath);
+
+		Vector2D flockTarget;
 };

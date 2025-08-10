@@ -27,6 +27,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			return 0;
 		}
 
+		case WM_LBUTTONUP:
+		{
+			int x = GET_X_LPARAM(lParam); // signed int to take into account minus values
+			int y = GET_Y_LPARAM(lParam); // signed int to take into account minus values
+			renderEngine.SetFlockTarget(x,y);
+			return 0;
+		}
+
 		case WM_PAINT:
 		{
 			PAINTSTRUCT ps;

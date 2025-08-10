@@ -196,6 +196,12 @@ void InstancedRendererEngine2D::OnShutdown()
 	delete triangle;
 }
 
+void InstancedRendererEngine2D::SetFlockTarget(float x, float y)
+{
+	flockTarget.x = (x/width * 2.0f) - 1.0f;
+	flockTarget.y = 1.0f - (y/height * 2.0f);
+}
+
 
 void InstancedRendererEngine2D::CreateShaders()
 {
@@ -460,7 +466,9 @@ void InstancedRendererEngine2D::RenderFlock(int instanceCount)
 
 	cbData.aspectRatio = aspectRatioX;
 	cbData.time = totalTime;
-	cbData.speed = 10.0f;
+	cbData.speed = 0.5f;
+	cbData.targetPosX = flockTarget.x;
+	cbData.targetPosY = flockTarget.y;
 
 	pDeviceContext->UpdateSubresource(flockConstantBuffer, 0, nullptr, &cbData, 0, 0);
 	pDeviceContext->VSSetConstantBuffers(0, 1, &flockConstantBuffer); // Actually pass the variables to the vertex shader

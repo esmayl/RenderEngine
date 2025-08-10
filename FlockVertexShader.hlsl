@@ -7,6 +7,7 @@ cbuffer VertexInputData : register(b0)
     int2 indexes;
     float speed;
     int2 grid;
+    float2 targetPos;
 }
 
 struct VsInput
@@ -26,24 +27,16 @@ struct VS_OUTPUT
 VS_OUTPUT main(VsInput input)
 {
     VS_OUTPUT output;
-    float2 targetPos = float2(0, 0);
-    float targetDistance = distance(input.instancePos, targetPos);
     
-    float2 direction = -normalize(input.instancePos);
+    float distanceToPos = distance(input.instancePos, targetPos);
+    distanceToPos = 1 / (distanceToPos + 0.001f);
     
-    float t = saturate(time / speed);
+    float t = saturate(time * speed * distanceToPos);
+    float2 movedInst = lerp(input.instancePos, targetPos, t);
     
-    float2 movedInst = lerp(input.instancePos, float2(0, 0), t);
-
-    
-    //float calculatedSpeed = speed * time;
-    //calculatedSpeed = min(calculatedSpeed, targetDistance);
-    
-    //float2 movedInstancePos = input.instancePos * (1 - t);
-    
-    float2 finalPos = input.pos.xy - movedInst;
+    float2 finalPos = input.pos.xy + movedInst;
     
     output.position = float4(finalPos, 0.0f, 1.0f);
-    output.color = float4(input.instanceId, 0.0f, 0.0f, 1.0f);
+    output.color = float4(targetPos.x, targetPos.y, 0.0f, 1.0f);
 	return output;
 }
