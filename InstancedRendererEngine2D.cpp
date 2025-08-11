@@ -127,7 +127,6 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	CountFps();
 
 	auto currentTime = std::chrono::steady_clock::now();
-	float deltaTime = std::chrono::duration<float>(currentTime - startTime).count();
 	startTime = currentTime;
 	totalTime += deltaTime;
 
@@ -173,8 +172,7 @@ void InstancedRendererEngine2D::CountFps()
 	auto frameStartTime = std::chrono::steady_clock::now();
 
 	auto currentTime = std::chrono::steady_clock::now();
-	deltaTime = std::chrono::duration<double>(currentTime - lastFrameTime).count();
-	lastFrameTime = currentTime;
+	deltaTime = std::chrono::duration<double>(currentTime - startTime).count();
 
 	timeSinceFPSUpdate += deltaTime;
 	framesSinceFPSUpdate++;
@@ -201,6 +199,8 @@ void InstancedRendererEngine2D::SetFlockTarget(float x, float y)
 	previousFlockTarget = flockTarget;
 	flockTarget.x = (x/width * 2.0f) - 1.0f;
 	flockTarget.y = 1.0f - (y/height * 2.0f);
+	flockFrozenTime = flockTransitionTime;
+	flockTransitionTime = 0;
 }
 
 
@@ -468,10 +468,16 @@ void InstancedRendererEngine2D::RenderFlock(int instanceCount)
 	cbData.aspectRatio = aspectRatioX;
 	cbData.time = totalTime;
 	cbData.speed = 0.5f;
+	cbData.previousTargetPosX = previousFlockTarget.x;
+	cbData.previousTargetPosY = previousFlockTarget.y;
 	cbData.targetPosX = flockTarget.x;
 	cbData.targetPosY = flockTarget.y;
 	cbData.orbitDistance = 0.2f;
 	cbData.jitter = 0.00025f;
+
+	flockTransitionTime += deltaTime;
+	cbData.flockTransitionTime = flockTransitionTime;
+	cbData.flockFrozenTime = flockFrozenTime;
 
 	pDeviceContext->UpdateSubresource(flockConstantBuffer, 0, nullptr, &cbData, 0, 0);
 	pDeviceContext->VSSetConstantBuffers(0, 1, &flockConstantBuffer); // Actually pass the variables to the vertex shader

@@ -41,7 +41,6 @@ class InstancedRendererEngine2D : public BaseRenderer
 
 	private:
 		std::chrono::time_point<std::chrono::steady_clock> startTime;
-		std::chrono::time_point<std::chrono::steady_clock> lastFrameTime;
 		double deltaTime = 0;
 		double timeSinceFPSUpdate = 0.0;
 		int framesSinceFPSUpdate = 0;
@@ -88,4 +87,6 @@ class InstancedRendererEngine2D : public BaseRenderer
 
 		Vector2D flockTarget;
 		Vector2D previousFlockTarget;
+		float flockTransitionTime;
+		float flockFrozenTime;
 };

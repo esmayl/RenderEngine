@@ -11,7 +11,8 @@ cbuffer VertexInputData : register(b0)
     float orbitDistance;
     float jitter;
     float2 previousTargetPos;
-
+    float flockTransitionTime;
+    float flockFrozenTime;
 }
 
 struct VsInput
@@ -35,11 +36,13 @@ VS_OUTPUT main(VsInput input)
     
     float2 quad = float2(input.pos.x / aspectRatio, input.pos.y);
     
-    float distanceToPos = distance(input.instancePos, targetPos);
+    float2 startPos = lerp(input.instancePos, previousTargetPos, flockFrozenTime);
+    
+    float distanceToPos = distance(startPos, targetPos);
     // Calculate the speed for each vertex, move faster if the vertex is closer to the targetPos
     float speedFactor = 1.0 / (distanceToPos + 0.001f);
-    float t = saturate(time * speed * speedFactor);
-    float2 movedInst = lerp(input.instancePos, targetPos, t);
+    float t = saturate(flockTransitionTime * speed * speedFactor);
+    float2 movedInst = lerp(startPos, targetPos, t);
     float4 color = float4(0, 0, 0, 1);
     
     float2 differenceInIsoSpace = float2((movedInst.x - targetPos.x) * aspectRatio, (movedInst.y - targetPos.y));
@@ -52,7 +55,7 @@ VS_OUTPUT main(VsInput input)
     else
     {
         
-        float angle = speed * time + (float)input.instanceId; // radians, simple spin
+        float angle = speed * flockTransitionTime + (float) input.instanceId; // radians, simple spin
         color.r = angle;
         float2 orbit = float2(cos(angle), sin(angle));
         orbit.x /= aspectRatio;
