@@ -141,7 +141,7 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	pDeviceContext->ClearRenderTargetView(renderTargetView, clearColor); // Clear the back buffer.
 
 	//RenderWavingGrid(300,150);
-	RenderFlock(50);
+	RenderFlock(1000);
 	RenderFpsText(50, 50, 32);
 	// Present the back buffer to the screen.
 	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
@@ -240,6 +240,12 @@ void InstancedRendererEngine2D::CreateShaders()
 		return;
 	};
 
+	shaderFilePath = L"FlockComputeShader.cso"; // Path to your HLSL file
+	if(!CreateComputeShader(hr, shaderFilePath, &flockComputeShader))
+	{
+		return;
+	};
+
 
 	// Used by the TextVertexShader and SquareWaveShader
 	D3D11_INPUT_ELEMENT_DESC layout[] = {
@@ -316,7 +322,21 @@ bool InstancedRendererEngine2D::CreatePixelShader(HRESULT& hr, const wchar_t* ps
 
 	hr = pDevice->CreatePixelShader(compiledShader.data(), compiledShader.size(), nullptr, pixelShader);
 	if(FAILED(hr))
-	{;
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool InstancedRendererEngine2D::CreateComputeShader(HRESULT& hr, const wchar_t* csFilePath, ID3D11ComputeShader** computeShader)
+{
+	// Already compiled by msbuild
+	std::vector<char> compiledShader = ReadShaderBinary(csFilePath);
+
+	hr = pDevice->CreateComputeShader(compiledShader.data(), compiledShader.size(), nullptr, computeShader);
+	if(FAILED(hr))
+	{
 		return false;
 	}
 
@@ -356,15 +376,45 @@ void InstancedRendererEngine2D::CreateBuffers()
 	D3D11_BUFFER_DESC instanceBufferDesc = {};
 	instanceBufferDesc.Usage = D3D11_USAGE_DEFAULT;
 	instanceBufferDesc.ByteWidth = sizeof(InstanceData) * instances.size();
-	instanceBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER; // Instance buffers are bound as vertex buffers
+	instanceBufferDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
 	instanceBufferDesc.CPUAccessFlags = 0; // No flags set
+	instanceBufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	instanceBufferDesc.StructureByteStride = sizeof(InstanceData);
 
 	D3D11_SUBRESOURCE_DATA instanceData = {};
 	instanceData.pSysMem = instances.data(); // Assing the created data to the subresource
+	//hr = pDevice->CreateBuffer(&instanceBufferDesc, &instanceData, &instanceBuffer);
 
-	hr = pDevice->CreateBuffer(&instanceBufferDesc, &instanceData, &instanceBuffer);
+	hr = pDevice->CreateBuffer(&instanceBufferDesc, nullptr, &computeBufferA);
+	hr = pDevice->CreateBuffer(&instanceBufferDesc, nullptr, &computeBufferB);
+	
+	if(FAILED(hr)) return;
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvd = {};
+	srvd.Format = DXGI_FORMAT_UNKNOWN;
+	srvd.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+	srvd.Buffer.ElementOffset = 0;
+	srvd.Buffer.NumElements = instances.size();
+
+	hr = pDevice->CreateShaderResourceView(computeBufferA, &srvd, &shaderResourceViewA);
+	hr = pDevice->CreateShaderResourceView(computeBufferB, &srvd, &shaderResourceViewB);
 
 	if(FAILED(hr)) return;
+
+	D3D11_UNORDERED_ACCESS_VIEW_DESC uavd = {};
+	uavd.Format = DXGI_FORMAT_UNKNOWN;
+	uavd.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+	uavd.Buffer.FirstElement = 0;
+	uavd.Buffer.NumElements = instances.size();
+
+	hr = pDevice->CreateUnorderedAccessView(computeBufferA, &uavd, &unorderedAccessViewA);
+	hr = pDevice->CreateUnorderedAccessView(computeBufferB, &uavd, &unorderedAccessViewB);
+
+	if(FAILED(hr)) return;
+
+	// Actually send the initial random positions to the compute shader buffers
+	pDeviceContext->UpdateSubresource(computeBufferA,0,nullptr,instances.data(),0,0);
+	pDeviceContext->CopyResource(computeBufferB,computeBufferA);
 }
 
 void InstancedRendererEngine2D::CreateFonts(ID3D11Device* device)
@@ -384,6 +434,8 @@ void InstancedRendererEngine2D::CreateInstanceList()
 	{
 		instances.push_back({ RandomGenerator::Generate(-1.0f,1.0f), RandomGenerator::Generate(-1.0f,1.0f) });
 	}
+
+
 }
 
 std::vector<char> InstancedRendererEngine2D::ReadShaderBinary(const wchar_t* filePath)
@@ -448,6 +500,54 @@ void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
 
 void InstancedRendererEngine2D::RenderFlock(int instanceCount)
 {
+
+	ID3D11ShaderResourceView* srvs[] = { shaderResourceViewA };
+	pDeviceContext->CSSetShaderResources(0, 1, srvs);
+
+	ID3D11UnorderedAccessView* uavs[] = { unorderedAccessViewB };
+	UINT initialCounts[] = { 0 };
+	pDeviceContext->CSSetUnorderedAccessViews(0, 1, uavs, initialCounts);
+
+	VertexInputData cbData;
+
+	cbData.aspectRatio = aspectRatioX;
+	cbData.time = totalTime;
+	cbData.speed = 0.1f;
+	cbData.previousTargetPosX = previousFlockTarget.x;
+	cbData.previousTargetPosY = previousFlockTarget.y;
+	cbData.targetPosX = flockTarget.x;
+	cbData.targetPosY = flockTarget.y;
+	cbData.orbitDistance = 0.2f;
+	cbData.jitter = 0.00025f;
+
+	flockTransitionTime += deltaTime;
+	cbData.flockTransitionTime = flockTransitionTime;
+	cbData.flockFrozenTime = flockFrozenTime;
+
+	pDeviceContext->UpdateSubresource(flockConstantBuffer, 0, nullptr, &cbData, 0, 0);
+	pDeviceContext->CSSetConstantBuffers(0, 1, &flockConstantBuffer);
+
+	pDeviceContext->CSSetShader(flockComputeShader, nullptr, 0);
+	pDeviceContext->Dispatch((instanceCount + 255) / 256, 1, 1);
+
+	pDeviceContext->CopyResource(instanceBuffer, computeBufferA);
+
+	// Swap backbuffer style
+	std::swap(computeBufferA,computeBufferB);
+	std::swap(shaderResourceViewA,shaderResourceViewB);
+	std::swap(unorderedAccessViewA,unorderedAccessViewB);
+
+	// Unset the compute buffers so they can be used elsewhere
+	ID3D11ShaderResourceView* nullSRVs[1] = { nullptr };
+	ID3D11UnorderedAccessView* nullUAVs[1] = { nullptr };
+	pDeviceContext->CSSetShaderResources(0, 1, nullSRVs);
+	pDeviceContext->CSSetUnorderedAccessViews(0, 1, nullUAVs, nullptr);
+	pDeviceContext->CSSetShader(nullptr, nullptr, 0);
+
+
+	ID3D11ShaderResourceView* shaderResources[] = { shaderResourceViewA };
+	pDeviceContext->VSSetShaderResources(0,1, shaderResources);
+
 	UINT strides[] = { sizeof(Vertex), sizeof(InstanceData) };
 	UINT offsets[] = { 0, 0 };
 
@@ -463,23 +563,6 @@ void InstancedRendererEngine2D::RenderFlock(int instanceCount)
 	pDeviceContext->VSSetShader(flockVertexShader, nullptr, 0);
 	pDeviceContext->PSSetShader(plainPixelShader, nullptr, 0);
 
-	VertexInputData cbData;
-
-	cbData.aspectRatio = aspectRatioX;
-	cbData.time = totalTime;
-	cbData.speed = 0.5f;
-	cbData.previousTargetPosX = previousFlockTarget.x;
-	cbData.previousTargetPosY = previousFlockTarget.y;
-	cbData.targetPosX = flockTarget.x;
-	cbData.targetPosY = flockTarget.y;
-	cbData.orbitDistance = 0.2f;
-	cbData.jitter = 0.00025f;
-
-	flockTransitionTime += deltaTime;
-	cbData.flockTransitionTime = flockTransitionTime;
-	cbData.flockFrozenTime = flockFrozenTime;
-
-	pDeviceContext->UpdateSubresource(flockConstantBuffer, 0, nullptr, &cbData, 0, 0);
 	pDeviceContext->VSSetConstantBuffers(0, 1, &flockConstantBuffer); // Actually pass the variables to the vertex shader
 	pDeviceContext->DrawIndexedInstanced(square->renderingData->indexCount, instanceCount, 0, 0, 0);
 }

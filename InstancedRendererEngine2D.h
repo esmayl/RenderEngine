@@ -62,11 +62,20 @@ class InstancedRendererEngine2D : public BaseRenderer
 		ID3D11VertexShader* flockVertexShader;
 		ID3D11PixelShader* plainPixelShader;
 		ID3D11PixelShader* textPixelShader;
+		ID3D11ComputeShader* flockComputeShader;
 		ID3D11InputLayout* pInputLayout; // Used to define input variables for the shaders
 		ID3D11InputLayout* flockInputLayout; // Used to define input variables for the shaders
 		std::vector<InstanceData> instances;
 		ID3D11Buffer* instanceBuffer;
 		ID3D11SamplerState* textureSamplerState;
+
+		// Compute shader buffers
+		ID3D11ShaderResourceView* shaderResourceViewA = nullptr;
+		ID3D11ShaderResourceView* shaderResourceViewB = nullptr;
+		ID3D11UnorderedAccessView* unorderedAccessViewA = nullptr;
+		ID3D11UnorderedAccessView* unorderedAccessViewB = nullptr;
+		ID3D11Buffer* computeBufferA = nullptr;
+		ID3D11Buffer* computeBufferB = nullptr;
 
 		float totalTime = 0.0f;
 		UINT width;
@@ -80,6 +89,7 @@ class InstancedRendererEngine2D : public BaseRenderer
 		void CreateShaders();
 		bool CreateVertexShader(HRESULT& hr, const wchar_t* vsFilePath, ID3D11VertexShader** vertexShader, ID3DBlob** vsBlob);
 		bool CreatePixelShader(HRESULT& hr, const wchar_t* psFilePath, ID3D11PixelShader** pixelShader);
+		bool CreateComputeShader(HRESULT& hr, const wchar_t* csFilePath, ID3D11ComputeShader** computeShader);
 		void CreateBuffers();
 		void CreateFonts(ID3D11Device* device);
 		void CreateInstanceList();
