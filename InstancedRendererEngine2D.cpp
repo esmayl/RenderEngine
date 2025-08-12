@@ -141,7 +141,7 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	pDeviceContext->ClearRenderTargetView(renderTargetView, clearColor); // Clear the back buffer.
 
 	RenderWavingGrid(150,80);
-	RenderFlock(1000);
+	RenderFlock(256);
 	RenderFpsText(50, 50, 32);
 	// Present the back buffer to the screen.
 	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
