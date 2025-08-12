@@ -20,6 +20,7 @@ struct VS_OUTPUT
 {
     float4 position : SV_POSITION; // Mandatory: Vertex position for rasterization
     float4 color : COLOR;
+    
 };
 
 VS_OUTPUT main(VsInput input)
@@ -28,9 +29,11 @@ VS_OUTPUT main(VsInput input)
     
     uint i = input.instanceId % grid.x; // go from 0 to grid.x
     uint j = input.instanceId / grid.x; // increase by 1 every time we go past the grid.x
-	
-    input.pos.x *= size.x; // scale vertex to scale the whole triangle
-    input.pos.y *= size.y * 0.6f;
+    
+    input.pos.x /= aspectRatio;
+    
+    input.pos.x *= size.x * 0.5f; // scale vertex to scale the whole triangle
+    input.pos.y *= size.y * 0.55f;
     input.pos.x += (float(i) / grid.x * 2.0f) - 1.0f;
     input.pos.y += 1.0f - (float(j) / grid.y * 2.0f);
 	

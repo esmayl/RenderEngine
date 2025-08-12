@@ -140,13 +140,13 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 
 	pDeviceContext->ClearRenderTargetView(renderTargetView, clearColor); // Clear the back buffer.
 
-	//RenderWavingGrid(300,150);
+	RenderWavingGrid(150,80);
 	RenderFlock(1000);
 	RenderFpsText(50, 50, 32);
 	// Present the back buffer to the screen.
 	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
 	// Change to 0 to disable V-Sync.
-	pSwapChain->Present(1, 0);
+	pSwapChain->Present(0, 0);
 }
 
 void InstancedRendererEngine2D::OnResize(int newWidth, int newHeight)
@@ -512,7 +512,7 @@ void InstancedRendererEngine2D::RenderFlock(int instanceCount)
 
 	cbData.aspectRatio = aspectRatioX;
 	cbData.time = totalTime;
-	cbData.speed = 0.1f;
+	cbData.speed = 0.1f * deltaTime;
 	cbData.previousTargetPosX = previousFlockTarget.x;
 	cbData.previousTargetPosY = previousFlockTarget.y;
 	cbData.targetPosX = flockTarget.x;
