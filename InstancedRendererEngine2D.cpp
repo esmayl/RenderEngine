@@ -512,7 +512,7 @@ void InstancedRendererEngine2D::RenderFlock(int instanceCount)
 
 	cbData.aspectRatio = aspectRatioX;
 	cbData.time = totalTime;
-	cbData.speed = 0.1f * deltaTime;
+	cbData.speed = 0.3f;
 	cbData.previousTargetPosX = previousFlockTarget.x;
 	cbData.previousTargetPosY = previousFlockTarget.y;
 	cbData.targetPosX = flockTarget.x;
@@ -522,7 +522,7 @@ void InstancedRendererEngine2D::RenderFlock(int instanceCount)
 
 	flockTransitionTime += deltaTime;
 	cbData.flockTransitionTime = flockTransitionTime;
-	cbData.flockFrozenTime = flockFrozenTime;
+	cbData.deltaTime = deltaTime;
 
 	pDeviceContext->UpdateSubresource(flockConstantBuffer, 0, nullptr, &cbData, 0, 0);
 	pDeviceContext->CSSetConstantBuffers(0, 1, &flockConstantBuffer);

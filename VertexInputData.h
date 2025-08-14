@@ -24,5 +24,5 @@ struct VertexInputData
 	float previousTargetPosX;
 	float previousTargetPosY;
 	float flockTransitionTime;
-	float flockFrozenTime;
+	float deltaTime;
 }; // Total needs to be multiples of 16 bytes otherwise buffer cannot be created
