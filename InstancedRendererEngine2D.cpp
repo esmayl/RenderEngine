@@ -51,6 +51,7 @@ void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int bloc
 		nullptr,                    // Don't need feature level
 		&pDeviceContext
 	);
+
 	if(FAILED(hr)) return;
 
 	InitRenderBufferAndTargetView(hr);
@@ -58,18 +59,83 @@ void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int bloc
 
 	// Get the window's client area size to set the viewport.
 	RECT rc;
+
 	GetClientRect(windowHandle, &rc);
 	width = rc.right - rc.left;
 	height = rc.bottom - rc.top;
 	
-	//blocks = Utilities::CreateBlocks(width, height,width / blockWidth, height / blockHeight);
-
 	SetupViewport(width, height);
 
 	CreateShaders();
-	CreateFonts(pDevice);
-	CreateInstanceList();
+
+	// Load the font from fnt file and load the corrosponding texture into Font variable
+	font = new Font();
+	font->LoadFonts("testFont.fnt");
+	font->LoadTexture(pDevice);
+
+	// Create instance buffer, containing position per instance , starts randomized in screen space
+	UINT instanceCount = 1000;
+	instances.reserve(instanceCount);
+
+	for(int i = 0; i < instanceCount; ++i)
+	{
+		instances.push_back({ RandomGenerator::Generate(-1.0f,1.0f), RandomGenerator::Generate(-1.0f,1.0f) });
+	}
+
 	CreateBuffers();
+}
+
+void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
+{
+	CountFps();
+
+	auto currentTime = std::chrono::steady_clock::now();
+	startTime = currentTime;
+	totalTime += deltaTime;
+
+	if(!pDeviceContext || !pSwapChain)
+	{
+		return;
+	}
+
+	// Define a color to clear the window to.
+	const float clearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f }; // A nice blue
+
+	pDeviceContext->ClearRenderTargetView(renderTargetView, clearColor); // Clear the back buffer.
+
+	RenderWavingGrid(150,80);
+	RenderFlock(256);
+	RenderFpsText(50, 50, 32);
+
+	// Present the back buffer to the screen.
+	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
+	// Change to 0 to disable V-Sync.
+	pSwapChain->Present(0, 0);
+}
+
+void InstancedRendererEngine2D::OnResize(int newWidth, int newHeight)
+{
+	pDeviceContext->OMSetRenderTargets(0, 0, 0);
+	SafeRelease(&renderTargetView);
+
+	pSwapChain->ResizeBuffers(0, newWidth, newHeight, DXGI_FORMAT_UNKNOWN, 0);
+
+	width = newWidth;
+	height = newHeight;
+
+	HRESULT hr = S_OK;
+	InitRenderBufferAndTargetView(hr);
+	
+	if(FAILED(hr)) return;
+
+	SetupViewport(newWidth, newHeight);
+}
+
+void InstancedRendererEngine2D::OnShutdown()
+{
+	delete square;
+	delete triangle;
+	delete font;
 }
 
 void InstancedRendererEngine2D::SetupViewport(UINT newWidth, UINT newHeight)
@@ -115,56 +181,13 @@ void InstancedRendererEngine2D::InitRenderBufferAndTargetView(HRESULT& hr)
 
 	ID3D11BlendState* pBlendState = nullptr;
 	hr = pDevice->CreateBlendState(&bsDesc, &pBlendState);
+
 	if(FAILED(hr)) throw std::runtime_error("Failed to create blend state");
 
 	float blendFactor[4] = { 0,0,0,0 };
 	UINT  sampleMask = 0xFFFFFFFF;
+
 	pDeviceContext->OMSetBlendState(pBlendState, blendFactor, sampleMask);
-}
-
-void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
-{
-	CountFps();
-
-	auto currentTime = std::chrono::steady_clock::now();
-	startTime = currentTime;
-	totalTime += deltaTime;
-
-	if(!pDeviceContext || !pSwapChain)
-	{
-		return;
-	}
-
-	// Define a color to clear the window to.
-	const float clearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f }; // A nice blue
-
-	pDeviceContext->ClearRenderTargetView(renderTargetView, clearColor); // Clear the back buffer.
-
-	RenderWavingGrid(150,80);
-	RenderFlock(256);
-	RenderFpsText(50, 50, 32);
-	// Present the back buffer to the screen.
-	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
-	// Change to 0 to disable V-Sync.
-	pSwapChain->Present(0, 0);
-}
-
-void InstancedRendererEngine2D::OnResize(int newWidth, int newHeight)
-{
-	pDeviceContext->OMSetRenderTargets(0, 0, 0);
-	SafeRelease(&renderTargetView);
-
-	pSwapChain->ResizeBuffers(0, newWidth, newHeight, DXGI_FORMAT_UNKNOWN, 0);
-
-	width = newWidth;
-	height = newHeight;
-
-	HRESULT hr = S_OK;
-	InitRenderBufferAndTargetView(hr);
-	
-	if(FAILED(hr)) return;
-
-	SetupViewport(newWidth, newHeight);
 }
 
 void InstancedRendererEngine2D::CountFps()
@@ -188,12 +211,6 @@ void InstancedRendererEngine2D::CountFps()
 	}
 }
 
-void InstancedRendererEngine2D::OnShutdown()
-{
-	delete square;
-	delete triangle;
-}
-
 void InstancedRendererEngine2D::SetFlockTarget(float x, float y)
 {
 	previousFlockTarget = flockTarget;
@@ -203,7 +220,6 @@ void InstancedRendererEngine2D::SetFlockTarget(float x, float y)
 	flockTransitionTime = 0;
 }
 
-
 void InstancedRendererEngine2D::CreateShaders()
 {
 	HRESULT hr = S_FALSE;
@@ -212,36 +228,36 @@ void InstancedRendererEngine2D::CreateShaders()
 	ID3DBlob* errorBlob = nullptr;
 
 	const wchar_t* shaderFilePath = L"SquareWaveVertexShader.cso"; // Create wave vertex shader
-	if(!CreateVertexShader(hr, shaderFilePath, &waveVertexShader,nullptr)){
+	if(!Utilities::CreateVertexShader(pDevice, hr, shaderFilePath, &waveVertexShader,nullptr)){
 		return;
 	};
 
 	shaderFilePath = L"TextVertexShader.cso"; // Create text vertex shader
-	if(!CreateVertexShader(hr, shaderFilePath, &textVertexShader,&textVsBlob))
+	if(!Utilities::CreateVertexShader(pDevice, hr, shaderFilePath, &textVertexShader,&textVsBlob))
 	{
 		return;
 	};
 
 	shaderFilePath = L"FlockVertexShader.cso";
-	if(!CreateVertexShader(hr, shaderFilePath, &flockVertexShader, &flockVsBlob))
+	if(!Utilities::CreateVertexShader(pDevice, hr, shaderFilePath, &flockVertexShader, &flockVsBlob))
 	{
 		return;
 	};
 
 	shaderFilePath = L"PlainPixelShader.cso"; // Path to your HLSL file
-	if(!CreatePixelShader(hr, shaderFilePath, &plainPixelShader))
+	if(!Utilities::CreatePixelShader(pDevice,hr, shaderFilePath, &plainPixelShader))
 	{
 		return;
 	};
 
 	shaderFilePath = L"TextPixelShader.cso"; // Path to your HLSL file
-	if(!CreatePixelShader(hr, shaderFilePath, &textPixelShader))
+	if(!Utilities::CreatePixelShader(pDevice, hr, shaderFilePath, &textPixelShader))
 	{
 		return;
 	};
 
 	shaderFilePath = L"FlockComputeShader.cso"; // Path to your HLSL file
-	if(!CreateComputeShader(hr, shaderFilePath, &flockComputeShader))
+	if(!Utilities::CreateComputeShader(pDevice, hr, shaderFilePath, &flockComputeShader))
 	{
 		return;
 	};
@@ -291,56 +307,6 @@ void InstancedRendererEngine2D::CreateShaders()
 
 	SafeRelease(&textVsBlob);
 	SafeRelease(&errorBlob);
-}
-
-bool InstancedRendererEngine2D::CreateVertexShader(HRESULT& hr, const wchar_t* vsFilePath, ID3D11VertexShader** vertexShader, ID3DBlob** vsBlob)
-{
-	// Already compiled by msbuild
-	std::vector<char> compiledShader = ReadShaderBinary(vsFilePath);
-
-	hr = pDevice->CreateVertexShader(compiledShader.data(), compiledShader.size(), nullptr, vertexShader);
-	if(FAILED(hr))
-	{
-		return false;
-	}
-
-	// Create a blob for the passed in blob pointer pointer
-	hr = D3DCreateBlob(compiledShader.size(), vsBlob);
-	if(SUCCEEDED(hr))
-	{
-		// Using memcpy_s as practice
-		memcpy_s((*vsBlob)->GetBufferPointer(),compiledShader.size(),compiledShader.data(),compiledShader.size());
-	}
-
-	return true;
-}
-
-bool InstancedRendererEngine2D::CreatePixelShader(HRESULT& hr, const wchar_t* psFilePath, ID3D11PixelShader** pixelShader)
-{
-	// Already compiled by msbuild
-	std::vector<char> compiledShader = ReadShaderBinary(psFilePath);
-
-	hr = pDevice->CreatePixelShader(compiledShader.data(), compiledShader.size(), nullptr, pixelShader);
-	if(FAILED(hr))
-	{
-		return false;
-	}
-
-	return true;
-}
-
-bool InstancedRendererEngine2D::CreateComputeShader(HRESULT& hr, const wchar_t* csFilePath, ID3D11ComputeShader** computeShader)
-{
-	// Already compiled by msbuild
-	std::vector<char> compiledShader = ReadShaderBinary(csFilePath);
-
-	hr = pDevice->CreateComputeShader(compiledShader.data(), compiledShader.size(), nullptr, computeShader);
-	if(FAILED(hr))
-	{
-		return false;
-	}
-
-	return true;
 }
 
 void InstancedRendererEngine2D::CreateBuffers()
@@ -417,28 +383,6 @@ void InstancedRendererEngine2D::CreateBuffers()
 	pDeviceContext->CopyResource(computeBufferB,computeBufferA);
 }
 
-void InstancedRendererEngine2D::CreateFonts(ID3D11Device* device)
-{
-	font = new Font();
-	font->LoadFonts("testFont.fnt");
-	font->LoadTexture(device);
-}
-
-void InstancedRendererEngine2D::CreateInstanceList()
-{
-	UINT instanceCount = 1000;
-
-	instances.reserve(instanceCount);
-
-	for(int i = 0; i < instanceCount; ++i)
-	{
-		instances.push_back({ RandomGenerator::Generate(-1.0f,1.0f), RandomGenerator::Generate(-1.0f,1.0f) });
-	}
-
-
-}
-
-
 void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
 {
 	UINT stride = sizeof(Vertex);
@@ -511,21 +455,15 @@ void InstancedRendererEngine2D::RenderFlock(int instanceCount)
 
 void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos, int fontSize)
 {
-	UINT stride = sizeof(Vertex);
-	UINT offset = 0;
-
-	pDeviceContext->IASetVertexBuffers(0, 1, &square->renderingData->vertexBuffer, &stride, &offset);
-	pDeviceContext->IASetIndexBuffer(square->renderingData->indexBuffer, DXGI_FORMAT_R32_UINT, 0);
-	pDeviceContext->IASetInputLayout(pInputLayout); // Setup input variables for the vertex shader like the vertex position
-
 	ID3D11ShaderResourceView* pTexture = font->GetTexture();
 	pDeviceContext->PSSetShaderResources(0, 1, &pTexture); // Binds to register t0 in HLSL
 	pDeviceContext->PSSetSamplers(0, 1, &textureSamplerState); // Binds to s0
+	pDeviceContext->IASetInputLayout(pInputLayout); // Setup input variables for the vertex shader like the vertex position
 
-	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // Define what primitive we should draw with the vertex and indices
-
-	pDeviceContext->VSSetShader(textVertexShader, nullptr, 0);
-	pDeviceContext->PSSetShader(textPixelShader, nullptr, 0);
+	UINT stride = sizeof(Vertex);
+	UINT offset = 0;
+	
+	SetupVerticesAndShaders(stride,offset,square->renderingData,textVertexShader,textPixelShader);
 
 	TextInputData cbData;
 	cbData.screenSize.x = width;
@@ -563,28 +501,7 @@ void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos, int fontSize)
 	}
 }
 
-std::vector<char> InstancedRendererEngine2D::ReadShaderBinary(const wchar_t* filePath)
-{
-	std::ifstream inputStream(filePath, std::ios::binary | std::ios::ate);
 
-	if(!inputStream.is_open())
-	{
-		throw std::runtime_error("Failed to load shader binary");
-	}
-
-	std::streamsize fileSize = inputStream.tellg();
-	std::vector<char> fileData(fileSize);
-
-	inputStream.seekg(0, std::ios::beg);
-
-	if(!inputStream.read(fileData.data(), fileSize))
-	{
-		throw std::runtime_error("Failed to read shader binary");
-	}
-
-
-	return fileData;
-}
 
 void InstancedRendererEngine2D::SetupVerticesAndShaders(UINT& stride, UINT& offset, Mesh* mesh, ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader)
 {
@@ -621,7 +538,7 @@ void InstancedRendererEngine2D::RunComputeShader(ID3D11Buffer* buffer, VertexInp
 
 	pDeviceContext->CopyResource(instanceBuffer, computeBufferA);
 
-	// Swap backbuffer style
+	// Swap,  backbuffer style
 	std::swap(computeBufferA, computeBufferB);
 	std::swap(shaderResourceViewA, shaderResourceViewB);
 	std::swap(unorderedAccessViewA, unorderedAccessViewB);

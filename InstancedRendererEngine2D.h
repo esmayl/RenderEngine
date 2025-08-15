@@ -5,7 +5,6 @@
 #include <d3d11.h>
 #include <dxgi.h>
 #include <d3dcompiler.h> // Needed for compiling shaders
-#include <fstream>
 
 #include "Utilities.h"
 #include "Block2D.h"
@@ -90,13 +89,7 @@ class InstancedRendererEngine2D : public BaseRenderer
 		Font* font = nullptr;
 
 		void CreateShaders();
-		bool CreateVertexShader(HRESULT& hr, const wchar_t* vsFilePath, ID3D11VertexShader** vertexShader, ID3DBlob** vsBlob);
-		bool CreatePixelShader(HRESULT& hr, const wchar_t* psFilePath, ID3D11PixelShader** pixelShader);
-		bool CreateComputeShader(HRESULT& hr, const wchar_t* csFilePath, ID3D11ComputeShader** computeShader);
 		void CreateBuffers();
-		void CreateFonts(ID3D11Device* device);
-		void CreateInstanceList();
-		std::vector<char> ReadShaderBinary(const wchar_t* filePath);
 
 		Vector2D flockTarget;
 		Vector2D previousFlockTarget;
