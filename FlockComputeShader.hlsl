@@ -33,7 +33,7 @@ void main( uint3 threadId : SV_DispatchThreadID )
     float2 d = targetPos - pos;
     
     float u = noise01(threadId.x, flockTransitionTime) * 2.0f - 1.0;
-    float eta = 0.6f * u;
+    float eta = 0.6f * u; // angle deviation * random noise between 0 - 1
     
     float cosineAngle = cos(eta);
     float sineAngle = sin(eta);

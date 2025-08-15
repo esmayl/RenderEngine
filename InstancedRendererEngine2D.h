@@ -32,7 +32,10 @@ class InstancedRendererEngine2D : public BaseRenderer
 		void OnResize(int width, int height) override;
 
 		void RenderWavingGrid(int gridWidth, int gridHeight);
+		void SetupVerticesAndShaders(UINT& stride, UINT& offset, Mesh* mesh, ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader);
+		void PassInputDataAndRunInstanced(ID3D11Buffer* pConstantBuffer, VertexInputData& cbData, Mesh& mesh, int instanceCount);
 		void RenderFlock(int instanceCount);
+		void RunComputeShader(ID3D11Buffer* buffer, VertexInputData& cbData, int instanceCount, ID3D11ComputeShader* computeShader);
 		void RenderFpsText(int xPos, int yPos, int fontSize);
 		void CountFps() override;
 		void OnShutdown() override;

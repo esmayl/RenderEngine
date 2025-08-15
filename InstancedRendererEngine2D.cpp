@@ -438,47 +438,16 @@ void InstancedRendererEngine2D::CreateInstanceList()
 
 }
 
-std::vector<char> InstancedRendererEngine2D::ReadShaderBinary(const wchar_t* filePath)
-{
-	std::ifstream inputStream(filePath,std::ios::binary | std::ios::ate);
-
-	if(!inputStream.is_open())
-	{
-		throw std::runtime_error("Failed to load shader binary");
-	}
-
-	std::streamsize fileSize = inputStream.tellg();
-	std::vector<char> fileData(fileSize);
-
-	inputStream.seekg(0, std::ios::beg);
-
-	if(!inputStream.read(fileData.data(), fileSize))
-	{
-		throw std::runtime_error("Failed to read shader binary");
-	}
-
-
-	return fileData;
-}
 
 void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
 {
 	UINT stride = sizeof(Vertex);
 	UINT offset = 0;
 
-	pDeviceContext->IASetVertexBuffers(0, 1, &square->renderingData->vertexBuffer, &stride, &offset);
-	pDeviceContext->IASetIndexBuffer(square->renderingData->indexBuffer, DXGI_FORMAT_R32_UINT, 0);
+	SetupVerticesAndShaders(stride, offset, square->renderingData, waveVertexShader, plainPixelShader);
 
-	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // Define what primitive we should draw with the vertex and indices
-
-	pDeviceContext->VSSetShader(waveVertexShader, nullptr, 0);
-	pDeviceContext->PSSetShader(plainPixelShader, nullptr, 0);
-
-	int columns = gridWidth;
-	int rows = gridHeight;
-
-	float startRenderPosX = 2.0f / columns;
-	float startRenderPosY = 2.0f / rows;
+	float startRenderPosX = 2.0f / gridWidth;
+	float startRenderPosY = 2.0f / gridHeight;
 
 	float factorX = startRenderPosX * 40.0f; // 40.0 is the factor based on the vertex pos 0.05f
 	float factorY = startRenderPosY * 40.0f;
@@ -493,21 +462,11 @@ void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
 	cbData.gridX = gridWidth;
 	cbData.gridY = gridHeight;
 
-	pDeviceContext->UpdateSubresource(pConstantBuffer, 0, nullptr, &cbData, 0, 0);
-	pDeviceContext->VSSetConstantBuffers(0, 1, &pConstantBuffer); // Actually pass the variables to the vertex shader
-	pDeviceContext->DrawIndexedInstanced(square->renderingData->indexCount,gridWidth * gridHeight,0,0,0);
+	PassInputDataAndRunInstanced(pConstantBuffer, cbData, *square->renderingData, gridWidth * gridHeight);
 }
 
 void InstancedRendererEngine2D::RenderFlock(int instanceCount)
 {
-
-	ID3D11ShaderResourceView* srvs[] = { shaderResourceViewA };
-	pDeviceContext->CSSetShaderResources(0, 1, srvs);
-
-	ID3D11UnorderedAccessView* uavs[] = { unorderedAccessViewB };
-	UINT initialCounts[] = { 0 };
-	pDeviceContext->CSSetUnorderedAccessViews(0, 1, uavs, initialCounts);
-
 	VertexInputData cbData;
 
 	cbData.aspectRatio = aspectRatioX;
@@ -524,26 +483,7 @@ void InstancedRendererEngine2D::RenderFlock(int instanceCount)
 	cbData.flockTransitionTime = flockTransitionTime;
 	cbData.deltaTime = deltaTime;
 
-	pDeviceContext->UpdateSubresource(flockConstantBuffer, 0, nullptr, &cbData, 0, 0);
-	pDeviceContext->CSSetConstantBuffers(0, 1, &flockConstantBuffer);
-
-	pDeviceContext->CSSetShader(flockComputeShader, nullptr, 0);
-	pDeviceContext->Dispatch((instanceCount + 255) / 256, 1, 1);
-
-	pDeviceContext->CopyResource(instanceBuffer, computeBufferA);
-
-	// Swap backbuffer style
-	std::swap(computeBufferA,computeBufferB);
-	std::swap(shaderResourceViewA,shaderResourceViewB);
-	std::swap(unorderedAccessViewA,unorderedAccessViewB);
-
-	// Unset the compute buffers so they can be used elsewhere
-	ID3D11ShaderResourceView* nullSRVs[1] = { nullptr };
-	ID3D11UnorderedAccessView* nullUAVs[1] = { nullptr };
-	pDeviceContext->CSSetShaderResources(0, 1, nullSRVs);
-	pDeviceContext->CSSetUnorderedAccessViews(0, 1, nullUAVs, nullptr);
-	pDeviceContext->CSSetShader(nullptr, nullptr, 0);
-
+	RunComputeShader(flockConstantBuffer, cbData, instanceCount, flockComputeShader);
 
 	ID3D11ShaderResourceView* shaderResources[] = { shaderResourceViewA };
 	pDeviceContext->VSSetShaderResources(0,1, shaderResources);
@@ -566,6 +506,8 @@ void InstancedRendererEngine2D::RenderFlock(int instanceCount)
 	pDeviceContext->VSSetConstantBuffers(0, 1, &flockConstantBuffer); // Actually pass the variables to the vertex shader
 	pDeviceContext->DrawIndexedInstanced(square->renderingData->indexCount, instanceCount, 0, 0, 0);
 }
+
+
 
 void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos, int fontSize)
 {
@@ -621,3 +563,73 @@ void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos, int fontSize)
 	}
 }
 
+std::vector<char> InstancedRendererEngine2D::ReadShaderBinary(const wchar_t* filePath)
+{
+	std::ifstream inputStream(filePath, std::ios::binary | std::ios::ate);
+
+	if(!inputStream.is_open())
+	{
+		throw std::runtime_error("Failed to load shader binary");
+	}
+
+	std::streamsize fileSize = inputStream.tellg();
+	std::vector<char> fileData(fileSize);
+
+	inputStream.seekg(0, std::ios::beg);
+
+	if(!inputStream.read(fileData.data(), fileSize))
+	{
+		throw std::runtime_error("Failed to read shader binary");
+	}
+
+
+	return fileData;
+}
+
+void InstancedRendererEngine2D::SetupVerticesAndShaders(UINT& stride, UINT& offset, Mesh* mesh, ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader)
+{
+	pDeviceContext->IASetVertexBuffers(0, 1, &mesh->vertexBuffer, &stride, &offset);
+	pDeviceContext->IASetIndexBuffer(mesh->indexBuffer, DXGI_FORMAT_R32_UINT, 0);
+
+	pDeviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST); // Define what primitive we should draw with the vertex and indices
+
+	pDeviceContext->VSSetShader(vertexShader, nullptr, 0);
+	pDeviceContext->PSSetShader(pixelShader, nullptr, 0);
+}
+
+void InstancedRendererEngine2D::PassInputDataAndRunInstanced(ID3D11Buffer* buffer, VertexInputData& cbData, Mesh& mesh, int instanceCount)
+{
+	pDeviceContext->UpdateSubresource(buffer, 0, nullptr, &cbData, 0, 0);
+	pDeviceContext->VSSetConstantBuffers(0, 1, &buffer); // Actually pass the variables to the vertex shader
+	pDeviceContext->DrawIndexedInstanced(mesh.indexCount, instanceCount, 0, 0, 0);
+}
+
+void InstancedRendererEngine2D::RunComputeShader(ID3D11Buffer* buffer, VertexInputData& cbData, int instanceCount, ID3D11ComputeShader* computeShader)
+{
+	ID3D11ShaderResourceView* srvs[] = { shaderResourceViewA };
+	pDeviceContext->CSSetShaderResources(0, 1, srvs);
+
+	ID3D11UnorderedAccessView* uavs[] = { unorderedAccessViewB };
+	UINT initialCounts[] = { 0 };
+	pDeviceContext->CSSetUnorderedAccessViews(0, 1, uavs, initialCounts);
+
+	pDeviceContext->UpdateSubresource(buffer, 0, nullptr, &cbData, 0, 0);
+	pDeviceContext->CSSetConstantBuffers(0, 1, &buffer);
+
+	pDeviceContext->CSSetShader(computeShader, nullptr, 0);
+	pDeviceContext->Dispatch((instanceCount + 255) / 256, 1, 1);
+
+	pDeviceContext->CopyResource(instanceBuffer, computeBufferA);
+
+	// Swap backbuffer style
+	std::swap(computeBufferA, computeBufferB);
+	std::swap(shaderResourceViewA, shaderResourceViewB);
+	std::swap(unorderedAccessViewA, unorderedAccessViewB);
+
+	// Unset the compute buffers so they can be used elsewhere
+	ID3D11ShaderResourceView* nullSRVs[1] = { nullptr };
+	ID3D11UnorderedAccessView* nullUAVs[1] = { nullptr };
+	pDeviceContext->CSSetShaderResources(0, 1, nullSRVs);
+	pDeviceContext->CSSetUnorderedAccessViews(0, 1, nullUAVs, nullptr);
+	pDeviceContext->CSSetShader(nullptr, nullptr, 0);
+}
