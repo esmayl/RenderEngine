@@ -20,7 +20,7 @@ class Font
 
 	public:
 		void LoadFonts(const char* newTextureFileName);
-		FontCharDescription GetFontCharacter(char character);
+		FontCharDescription GetFontCharacter(wchar_t character);
 		
 		Vector4D GetPadding();
 		int GetCharacterSize();

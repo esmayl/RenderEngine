@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Mesh.h";
-#include "Vertex.h";
+#include "Mesh.h"
+#include "Vertex.h"
 
 class SquareMesh
 {
@@ -9,4 +9,3 @@ class SquareMesh
 		Mesh* renderingData;
 		explicit SquareMesh(ID3D11Device& pDevice);
 };
-

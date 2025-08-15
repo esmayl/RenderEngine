@@ -10,7 +10,7 @@ SamplerState g_samplerState : register(s0);
 
 float4 main(VS_OUTPUT input) : SV_TARGET
 {
-    float fontColor = g_fontTexture.Sample(g_samplerState, input.uv);
+    float fontColor = (float)g_fontTexture.Sample(g_samplerState, input.uv);
 
     return float4(1.0, 1.0, 1.0, fontColor);
 }

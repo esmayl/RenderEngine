@@ -25,21 +25,16 @@ class InstancedRendererEngine2D : public BaseRenderer
 {
 	public:
 		void Init(HWND windowHandle, int blockWidth, int blockHeight) override;
-		void SetupViewport(UINT width, UINT height);
-		void InitRenderBufferAndTargetView(HRESULT& hr);
+
 		void OnPaint(HWND windowHandle) override;
 		void OnResize(int width, int height) override;
-
-		void RenderWavingGrid(int gridWidth, int gridHeight);
-		void SetupVerticesAndShaders(UINT& stride, UINT& offset, Mesh* mesh, ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader);
-		void PassInputDataAndRunInstanced(ID3D11Buffer* pConstantBuffer, VertexInputData& cbData, Mesh& mesh, int instanceCount);
-		void RenderFlock(int instanceCount);
-		void RunComputeShader(ID3D11Buffer* buffer, VertexInputData& cbData, int instanceCount, ID3D11ComputeShader* computeShader);
-		void RenderFpsText(int xPos, int yPos, int fontSize);
 		void CountFps() override;
 		void OnShutdown() override;
+		void RenderWavingGrid(int gridWidth, int gridHeight);
+		void RenderFlock(int instanceCount);
+		void RenderFpsText(int xPos, int yPos, int fontSize);
 
-		void SetFlockTarget(float x,float y);
+		void SetFlockTarget(int x, int y);
 
 	private:
 		std::chrono::time_point<std::chrono::steady_clock> startTime;
@@ -47,7 +42,7 @@ class InstancedRendererEngine2D : public BaseRenderer
 		double deltaTime = 0;
 		double timeSinceFPSUpdate = 0.0;
 		int framesSinceFPSUpdate = 0;
-		float totalTime = 0.0f;
+		double totalTime = 0.0f;
 
 		wchar_t fpsText[256];
 
@@ -55,7 +50,7 @@ class InstancedRendererEngine2D : public BaseRenderer
 		ID3D11DeviceContext* pDeviceContext;
 		IDXGISwapChain* pSwapChain;
 		ID3D11RenderTargetView* renderTargetView;
-		ID3D11Texture2D* pBackBuffer;
+		ID3D11Texture2D* backBuffer;
 
 		// for rendering
 		ID3D11Buffer* pConstantBuffer;
@@ -89,11 +84,16 @@ class InstancedRendererEngine2D : public BaseRenderer
 		TriangleMesh* triangle = nullptr;
 		Font* font = nullptr;
 
-		void CreateShaders();
+		void LoadShaders();
 		void CreateBuffers();
+		void RunComputeShader(ID3D11Buffer* buffer, VertexInputData& cbData, int instanceCount, ID3D11ComputeShader* computeShader);
+		void SetupViewport(UINT width, UINT height);
+		void InitRenderBufferAndTargetView(HRESULT& hr);
+		void SetupVerticesAndShaders(UINT& stride, UINT& offset, UINT bufferCount, Mesh* mesh, ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader);
+		void PassInputDataAndRunInstanced(ID3D11Buffer* pConstantBuffer, VertexInputData& cbData, Mesh& mesh, int instanceCount);
 
 		Vector2D flockTarget;
 		Vector2D previousFlockTarget;
-		float flockTransitionTime;
-		float flockFrozenTime;
+		double flockTransitionTime;
+		double flockFrozenTime;
 };

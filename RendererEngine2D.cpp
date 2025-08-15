@@ -120,16 +120,17 @@ void RendererEngine2D::OnPaint(HWND windowHandle)
 
 			if(hr >= 0)
 			{
-				int sinnedY;
+				float sinnedY;
 				int edgeFlags = EDGE_RAISED;
 				for(size_t i = 0; i < blocks.size(); i++)
 				{
-					sinnedY = (int)(blocks[i].y + sin(elapsed_seconds.count() * 5 + blocks[i].offset) * 5);
-					D2D1_POINT_2F topLeft = D2D1::Point2F(blocks[i].x, sinnedY);
+					sinnedY = (float)(blocks[i].y + sin(elapsed_seconds.count() * 5 + blocks[i].offset) * 5);
+					float blockX = (float)blocks[i].x;
+					D2D1_POINT_2F topLeft = D2D1::Point2F(blockX, sinnedY);
 					D2D1_POINT_2F lines[3] = {
-						D2D1::Point2F(blocks[i].x + blocks[i].width, sinnedY),
-						D2D1::Point2F(blocks[i].x + blocks[i].width, sinnedY + blocks[i].height),
-						D2D1::Point2F(blocks[i].x, sinnedY + blocks[i].height)
+						D2D1::Point2F(blockX + blocks[i].width, sinnedY),
+						D2D1::Point2F(blockX + blocks[i].width, sinnedY + blocks[i].height),
+						D2D1::Point2F(blockX, sinnedY + blocks[i].height)
 					};
 
 					geometrySink->BeginFigure(topLeft,D2D1_FIGURE_BEGIN_FILLED);

@@ -98,8 +98,6 @@ void Font::LoadFonts(const char* fontFileName)
     {
         FontCharDescription fontDescription;
 
-        int x,y;
-
         pChar->QueryIntAttribute("id",&fontDescription.id);
         pChar->QueryIntAttribute("x", &fontDescription.x);
         pChar->QueryIntAttribute("y", &fontDescription.y);
@@ -115,7 +113,7 @@ void Font::LoadFonts(const char* fontFileName)
 
 }
 
-FontCharDescription Font::GetFontCharacter(char character)
+FontCharDescription Font::GetFontCharacter(wchar_t character)
 {
     int asciiValue = character;
     return fontCharacters[asciiValue];
