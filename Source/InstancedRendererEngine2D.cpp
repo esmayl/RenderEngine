@@ -215,8 +215,8 @@ void InstancedRendererEngine2D::CountFps()
 void InstancedRendererEngine2D::SetFlockTarget(int x, int y)
 {
 	previousFlockTarget = flockTarget;
-	flockTarget.x = (x/screenWidth * 2.0f) - 1.0f;
-	flockTarget.y = 1.0f - (y/screenHeight * 2.0f);
+	flockTarget.x = (x/(float)screenWidth * 2.0f) - 1.0f;
+	flockTarget.y = 1.0f - (y/(float)screenHeight * 2.0f);
 	flockFrozenTime = flockTransitionTime;
 	flockTransitionTime = 0;
 }
@@ -342,7 +342,7 @@ void InstancedRendererEngine2D::RenderFlock(int instanceCount)
 	cbData.jitter = 0.00025f;
 
 	flockTransitionTime += deltaTime;
-	cbData.flockTransitionTime = (float)flockTransitionTime;
+	cbData.flockTransitionTime = flockTransitionTime;
 	cbData.deltaTime = (float)deltaTime;
 
 	RunComputeShader(flockConstantBuffer, cbData, instanceCount, flockComputeShader);

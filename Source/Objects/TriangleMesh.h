@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Mesh.h"
-#include "Vertex.h"
+#include "../Mesh.h"
+#include "../Vertex.h"
 
 class TriangleMesh
 {

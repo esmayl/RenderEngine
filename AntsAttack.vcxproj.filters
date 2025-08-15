@@ -15,90 +15,90 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Main.cpp">
+    <ClCompile Include="Source\Main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Block2D.cpp">
+    <ClCompile Include="Source\Block2D.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="RandomGenerator.cpp">
+    <ClCompile Include="Source\RandomGenerator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Utilities.cpp">
+    <ClCompile Include="Source\Utilities.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="RendererEngine2D.cpp">
+    <ClCompile Include="Source\RendererEngine2D.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="InstancedRendererEngine2D.cpp">
+    <ClCompile Include="Source\InstancedRendererEngine2D.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="SquareMesh.cpp">
+    <ClCompile Include="Source\Objects\SquareMesh.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Mesh.h">
+    <ClCompile Include="Source\Mesh.h">
       <Filter>Header Files</Filter>
     </ClCompile>
-    <ClCompile Include="TriangleMesh.cpp">
+    <ClCompile Include="Source\Objects\TriangleMesh.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Font.cpp">
+    <ClCompile Include="Source\Font.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="FontCharDescription.cpp">
+    <ClCompile Include="Source\FontCharDescription.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Block2D.h">
+    <ClInclude Include="Source\Block2D.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="RandomGenerator.h">
+    <ClInclude Include="Source\RandomGenerator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Main.h">
+    <ClInclude Include="Source\Main.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Utilities.h">
+    <ClInclude Include="Source\Utilities.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="RendererEngine2D.h">
+    <ClInclude Include="Source\RendererEngine2D.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="InstancedRendererEngine2D.h">
+    <ClInclude Include="Source\InstancedRendererEngine2D.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="BaseRenderer.h">
+    <ClInclude Include="Source\BaseRenderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Vertex.h">
+    <ClInclude Include="Source\Vertex.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="VertexInputData.h">
+    <ClInclude Include="Source\VertexInputData.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="InstanceData.h">
+    <ClInclude Include="Source\InstanceData.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SquareMesh.h">
+    <ClInclude Include="Source\Objects\SquareMesh.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="TriangleMesh.h">
+    <ClInclude Include="Source\Objects\TriangleMesh.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Vector2D.h">
+    <ClInclude Include="Source\Vector2D.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="TextInputData.h">
+    <ClInclude Include="Source\TextInputData.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Font.h">
+    <ClInclude Include="Source\Font.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="FontCharDescription.h">
+    <ClInclude Include="Source\FontCharDescription.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Vector4D.h">
+    <ClInclude Include="Source\Vector4D.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -108,30 +108,30 @@
     </Xml>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="SquareWaveVertexShader.hlsl">
+    <FxCompile Include="Source\Shaders\SquareWaveVertexShader.hlsl">
       <Filter>Source Files</Filter>
     </FxCompile>
-    <FxCompile Include="PlainPixelShader.hlsl">
+    <FxCompile Include="Source\Shaders\PlainPixelShader.hlsl">
       <Filter>Source Files</Filter>
     </FxCompile>
-    <FxCompile Include="TextVertexShader.hlsl">
+    <FxCompile Include="Source\Shaders\TextVertexShader.hlsl">
       <Filter>Source Files</Filter>
     </FxCompile>
-    <FxCompile Include="TextPixelShader.hlsl">
+    <FxCompile Include="Source\Shaders\TextPixelShader.hlsl">
       <Filter>Source Files</Filter>
     </FxCompile>
-    <FxCompile Include="FlockVertexShader.hlsl">
+    <FxCompile Include="Source\Shaders\FlockVertexShader.hlsl">
       <Filter>Source Files</Filter>
     </FxCompile>
-    <FxCompile Include="FlockComputeShader.hlsl">
+    <FxCompile Include="Source\Shaders\FlockComputeShader.hlsl">
       <Filter>Source Files</Filter>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
-    <CopyFileToFolders Include="testFont.fnt">
+    <CopyFileToFolders Include="Fonts\testFont.fnt">
       <Filter>Resource Files</Filter>
     </CopyFileToFolders>
-    <CopyFileToFolders Include="testFont_0.png">
+    <CopyFileToFolders Include="Fonts\testFont_0.png">
       <Filter>Resource Files</Filter>
     </CopyFileToFolders>
   </ItemGroup>

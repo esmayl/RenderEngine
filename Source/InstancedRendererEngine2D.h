@@ -13,8 +13,8 @@
 #include "VertexInputData.h"
 #include "TextInputData.h"
 #include "InstanceData.h"
-#include "SquareMesh.h"
-#include "TriangleMesh.h"
+#include "Objects/SquareMesh.h"
+#include "Objects/TriangleMesh.h"
 #include "Font.h"
 
 #pragma comment(lib, "d3d11.lib")
