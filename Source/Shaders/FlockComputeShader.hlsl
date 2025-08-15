@@ -29,26 +29,53 @@ float noise01(uint id, uint tick)
 [numthreads(256, 1, 1)]
 void main( uint3 threadId : SV_DispatchThreadID )
 {   
+    //float2 d = targetPos - pos;
+    
+    //float u = noise01(threadId.x, flockTransitionTime) * 2.0f - 1.0;
+    //float eta = 0.6f * u; // angle deviation * random noise between 0 - 1
+    
+    //float cosineAngle = cos(eta);
+    //float sineAngle = sin(eta);
+    
+    //float2 rotation = float2(d.x * cosineAngle - d.y * sineAngle, d.x * sineAngle + d.y * cosineAngle);
+    
+    //// Goal bias, spreading out the points before coming back to the target pos
+    //float2 goal = targetPos - pos;
+    //float len = max(length(goal), 0.0001f);
+    //float2 goalDir = goal / len;
+    
+    //rotation = normalize(lerp(rotation, goalDir, saturate(0.05f)));
+    
     float2 pos = CurrPosIn[threadId.x];
-    float2 d = targetPos - pos;
     
-    float u = noise01(threadId.x, flockTransitionTime) * 2.0f - 1.0;
-    float eta = 0.6f * u; // angle deviation * random noise between 0 - 1
+    float separationRadius = 0.1f;
+    float2 dirToGoal = normalize(targetPos - pos);
     
-    float cosineAngle = cos(eta);
-    float sineAngle = sin(eta);
+    float2 separation = float2(0, 0);
+    for (uint i = 0; i < 256; i++)
+    {
+        if (i == threadId.x)
+            continue;
+        float2 other = CurrPosIn[i];
+        float2 diff = pos - other;
+        float dist = length(diff);
+        if (dist < separationRadius && dist > 0.0001f)
+        {
+            separation += normalize(diff) * (1.0f - dist / separationRadius);
+        }
+    }
     
-    float2 rotation = float2(d.x * cosineAngle - d.y * sineAngle, d.x * sineAngle + d.y * cosineAngle);
+
+    separation *= 0.6f;
     
-    // Goal bias, spreading out the points before coming back to the target pos
-    float2 goal = targetPos - pos;
-    float len = max(length(goal), 0.0001f);
-    float2 goalDir = goal / len;
+    float2 moveDir = normalize(dirToGoal + separation);
+    float distanceToGoal = distance(pos, targetPos);
+    float arrivalFactor = saturate(distanceToGoal / 0.5f);
     
-    rotation = normalize(lerp(rotation, goalDir, saturate(0.05f)));
-    pos += rotation * (speed * deltaTime);
+    float step = min(distanceToGoal, speed * deltaTime * arrivalFactor);
+    float2 newPos = pos + moveDir * step;
     
-    CurrPosOut[threadId.x] = pos;
+    CurrPosOut[threadId.x] = newPos;
 }
 
 //[numthreads(256, 1, 1)]

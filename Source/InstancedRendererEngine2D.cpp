@@ -82,6 +82,7 @@ void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int bloc
 		instances.push_back({ RandomGenerator::Generate(-1.0f,1.0f), RandomGenerator::Generate(-1.0f,1.0f) });
 	}
 
+	CreateMeshes();
 	CreateBuffers();
 }
 
@@ -110,7 +111,7 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	// Present the back buffer to the screen.
 	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
 	// Change to 0 to disable V-Sync.
-	pSwapChain->Present(0, 0);
+	pSwapChain->Present(1, 0);
 }
 
 void InstancedRendererEngine2D::OnResize(int newWidth, int newHeight)
@@ -221,11 +222,14 @@ void InstancedRendererEngine2D::SetFlockTarget(int x, int y)
 	flockTransitionTime = 0;
 }
 
-void InstancedRendererEngine2D::CreateBuffers()
+void InstancedRendererEngine2D::CreateMeshes()
 {
 	square = new SquareMesh(*pDevice);
 	triangle = new TriangleMesh(*pDevice);
+}
 
+void InstancedRendererEngine2D::CreateBuffers()
+{
 	// Create buffer description for vertices
 	D3D11_BUFFER_DESC bd = {};
 
@@ -333,7 +337,7 @@ void InstancedRendererEngine2D::RenderFlock(int instanceCount)
 
 	cbData.aspectRatio = aspectRatioX;
 	cbData.time = (float)totalTime;
-	cbData.speed = 0.3f;
+	cbData.speed = 0.5f;
 	cbData.previousTargetPosX = previousFlockTarget.x;
 	cbData.previousTargetPosY = previousFlockTarget.y;
 	cbData.targetPosX = flockTarget.x;
@@ -342,7 +346,7 @@ void InstancedRendererEngine2D::RenderFlock(int instanceCount)
 	cbData.jitter = 0.00025f;
 
 	flockTransitionTime += deltaTime;
-	cbData.flockTransitionTime = flockTransitionTime;
+	cbData.flockTransitionTime = (float)flockTransitionTime;
 	cbData.deltaTime = (float)deltaTime;
 
 	RunComputeShader(flockConstantBuffer, cbData, instanceCount, flockComputeShader);

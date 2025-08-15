@@ -85,6 +85,7 @@ class InstancedRendererEngine2D : public BaseRenderer
 		Font* font = nullptr;
 
 		void LoadShaders();
+		void CreateMeshes();
 		void CreateBuffers();
 		void RunComputeShader(ID3D11Buffer* buffer, VertexInputData& cbData, int instanceCount, ID3D11ComputeShader* computeShader);
 		void SetupViewport(UINT width, UINT height);
