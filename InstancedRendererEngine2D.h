@@ -43,12 +43,13 @@ class InstancedRendererEngine2D : public BaseRenderer
 
 	private:
 		std::chrono::time_point<std::chrono::steady_clock> startTime;
+		
 		double deltaTime = 0;
 		double timeSinceFPSUpdate = 0.0;
 		int framesSinceFPSUpdate = 0;
-		wchar_t fpsText[256];
+		float totalTime = 0.0f;
 
-		std::vector<Block2D> blocks;
+		wchar_t fpsText[256];
 
 		ID3D11Device* pDevice;
 		ID3D11DeviceContext* pDeviceContext;
@@ -67,6 +68,7 @@ class InstancedRendererEngine2D : public BaseRenderer
 		ID3D11ComputeShader* flockComputeShader;
 		ID3D11InputLayout* pInputLayout; // Used to define input variables for the shaders
 		ID3D11InputLayout* flockInputLayout; // Used to define input variables for the shaders
+
 		std::vector<InstanceData> instances;
 		ID3D11Buffer* instanceBuffer;
 		ID3D11SamplerState* textureSamplerState;
@@ -79,9 +81,8 @@ class InstancedRendererEngine2D : public BaseRenderer
 		ID3D11Buffer* computeBufferA = nullptr;
 		ID3D11Buffer* computeBufferB = nullptr;
 
-		float totalTime = 0.0f;
-		UINT width;
-		UINT height;
+		UINT screenWidth;
+		UINT screenHeight;
 		float aspectRatioX;
 
 		SquareMesh* square = nullptr;

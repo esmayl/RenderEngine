@@ -61,10 +61,10 @@ void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int bloc
 	RECT rc;
 
 	GetClientRect(windowHandle, &rc);
-	width = rc.right - rc.left;
-	height = rc.bottom - rc.top;
+	screenWidth = rc.right - rc.left;
+	screenHeight = rc.bottom - rc.top;
 	
-	SetupViewport(width, height);
+	SetupViewport(screenWidth, screenHeight);
 
 	CreateShaders();
 
@@ -117,11 +117,12 @@ void InstancedRendererEngine2D::OnResize(int newWidth, int newHeight)
 {
 	pDeviceContext->OMSetRenderTargets(0, 0, 0);
 	SafeRelease(&renderTargetView);
+	SafeRelease(&pBackBuffer);
 
 	pSwapChain->ResizeBuffers(0, newWidth, newHeight, DXGI_FORMAT_UNKNOWN, 0);
 
-	width = newWidth;
-	height = newHeight;
+	screenWidth = newWidth;
+	screenHeight = newHeight;
 
 	HRESULT hr = S_OK;
 	InitRenderBufferAndTargetView(hr);
@@ -214,8 +215,8 @@ void InstancedRendererEngine2D::CountFps()
 void InstancedRendererEngine2D::SetFlockTarget(float x, float y)
 {
 	previousFlockTarget = flockTarget;
-	flockTarget.x = (x/width * 2.0f) - 1.0f;
-	flockTarget.y = 1.0f - (y/height * 2.0f);
+	flockTarget.x = (x/screenWidth * 2.0f) - 1.0f;
+	flockTarget.y = 1.0f - (y/screenHeight * 2.0f);
 	flockFrozenTime = flockTransitionTime;
 	flockTransitionTime = 0;
 }
@@ -347,8 +348,8 @@ void InstancedRendererEngine2D::CreateBuffers()
 	instanceBufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 	instanceBufferDesc.StructureByteStride = sizeof(InstanceData);
 
-	D3D11_SUBRESOURCE_DATA instanceData = {};
-	instanceData.pSysMem = instances.data(); // Assing the created data to the subresource
+	//D3D11_SUBRESOURCE_DATA instanceData = {};
+	//instanceData.pSysMem = instances.data(); // Assigning the created data to the subresource
 	//hr = pDevice->CreateBuffer(&instanceBufferDesc, &instanceData, &instanceBuffer);
 
 	hr = pDevice->CreateBuffer(&instanceBufferDesc, nullptr, &computeBufferA);
@@ -466,8 +467,8 @@ void InstancedRendererEngine2D::RenderFpsText(int xPos, int yPos, int fontSize)
 	SetupVerticesAndShaders(stride,offset,square->renderingData,textVertexShader,textPixelShader);
 
 	TextInputData cbData;
-	cbData.screenSize.x = width;
-	cbData.screenSize.y = height;
+	cbData.screenSize.x = screenWidth;
+	cbData.screenSize.y = screenHeight;
 	cbData.objectPos.y = yPos;
 
 	Vector4D fontPadding = font->GetPadding();
