@@ -15,8 +15,18 @@ cbuffer VertexInputData : register(b0)
     float deltaTime;
 }
 
-StructuredBuffer<float2> CurrPosIn : register(t0);
-RWStructuredBuffer<float2> CurrPosOut : register(u0);
+struct InstanceData
+{
+    float x;
+    float y;
+    float directionX;
+    float directionY;
+    float4 color;
+    int movementState;
+};
+
+StructuredBuffer<InstanceData> CurrPosIn : register(t0);
+RWStructuredBuffer<InstanceData> CurrPosOut : register(u0);
 
 float noise01(uint id, uint tick)
 {
@@ -28,55 +38,65 @@ float noise01(uint id, uint tick)
 
 [numthreads(256, 1, 1)]
 void main( uint3 threadId : SV_DispatchThreadID )
-{   
-    //float2 d = targetPos - pos;
-    
-    //float u = noise01(threadId.x, flockTransitionTime) * 2.0f - 1.0;
-    //float eta = 0.6f * u; // angle deviation * random noise between 0 - 1
-    
-    //float cosineAngle = cos(eta);
-    //float sineAngle = sin(eta);
-    
-    //float2 rotation = float2(d.x * cosineAngle - d.y * sineAngle, d.x * sineAngle + d.y * cosineAngle);
-    
-    //// Goal bias, spreading out the points before coming back to the target pos
-    //float2 goal = targetPos - pos;
-    //float len = max(length(goal), 0.0001f);
-    //float2 goalDir = goal / len;
-    
-    //rotation = normalize(lerp(rotation, goalDir, saturate(0.05f)));
-    
-    float2 pos = CurrPosIn[threadId.x];
-    
-    float separationRadius = 0.1f;
+{    
+    float2 pos = float2(CurrPosIn[threadId.x].x, CurrPosIn[threadId.x].y);
+    float stopDistance = 0.1f;
+    float followDistance = 0.05f;
     float2 dirToGoal = normalize(targetPos - pos);
-    
-    float2 separation = float2(0, 0);
-    for (uint i = 0; i < 256; i++)
-    {
-        if (i == threadId.x)
-            continue;
-        float2 other = CurrPosIn[i];
-        float2 diff = pos - other;
-        float dist = length(diff);
-        if (dist < separationRadius && dist > 0.0001f)
-        {
-            separation += normalize(diff) * (1.0f - dist / separationRadius);
-        }
-    }
-    
 
-    separation *= 0.6f;
+    CurrPosOut[threadId.x].color = CurrPosIn[threadId.x].color;
     
-    float2 moveDir = normalize(dirToGoal + separation);
-    float distanceToGoal = distance(pos, targetPos);
-    float arrivalFactor = saturate(distanceToGoal / 0.5f);
+    if (threadId.x == 0)
+    {
+        float distToGoal = distance(pos, targetPos);
+
+        if (distance(pos, targetPos) < stopDistance)
+        {
+            CurrPosOut[threadId.x].x = pos.x;
+            CurrPosOut[threadId.x].y = pos.y;
+            CurrPosOut[threadId.x].directionX = 0;
+            CurrPosOut[threadId.x].directionY = 0;
+        }
+        else
+        {
+            dirToGoal = normalize(targetPos - pos);
+            float step = min(distToGoal - stopDistance, speed * deltaTime);
+            float2 newPos = pos + (dirToGoal * speed * deltaTime);
     
-    float step = min(distanceToGoal, speed * deltaTime * arrivalFactor);
-    float2 newPos = pos + moveDir * step;
-    
-    CurrPosOut[threadId.x] = newPos;
+            CurrPosOut[threadId.x].x = newPos.x;
+            CurrPosOut[threadId.x].y = newPos.y;
+            CurrPosOut[threadId.x].directionX = dirToGoal;
+            CurrPosOut[threadId.x].directionY = dirToGoal;
+        }
+               
+        return;
+    }
+     
+    float2 prevPos = float2(CurrPosIn[threadId.x - 1].x, CurrPosIn[threadId.x - 1].y);
+    float2 toPreviousPos = prevPos - pos;
+    float distanceToPreviousPos = length(toPreviousPos);
+        
+    if (distanceToPreviousPos <= followDistance)
+    {
+        CurrPosOut[threadId.x].x = pos.x;
+        CurrPosOut[threadId.x].y = pos.y;
+        CurrPosOut[threadId.x].directionX = 0;
+        CurrPosOut[threadId.x].directionY = 0;
+    }
+    else
+    {
+        dirToGoal = toPreviousPos / distanceToPreviousPos;
+        float step = min(distanceToPreviousPos - followDistance, speed * deltaTime);
+            
+        float2 newPos = pos + dirToGoal * step;
+            
+        CurrPosOut[threadId.x].x = newPos.x;
+        CurrPosOut[threadId.x].y = newPos.y;
+        CurrPosOut[threadId.x].directionX = dirToGoal;
+        CurrPosOut[threadId.x].directionY = dirToGoal;
+    }
 }
+    
 
 //[numthreads(256, 1, 1)]
 //void main(uint3 threadId : SV_DispatchThreadID)

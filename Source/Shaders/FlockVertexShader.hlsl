@@ -12,9 +12,21 @@ cbuffer VertexInputData : register(b0)
     float jitter;
     float2 previousTargetPos;
     float flockTransitionTime;
-    float flockFrozenTime;
+    float deltaTime;
 }
-StructuredBuffer<float2> CurrPos : register(t0); // same as CurrPosIn after swap
+
+
+struct InstanceData
+{
+    float x;
+    float y;
+    float directionX;
+    float directionY;
+    float4 color;
+    int movementState;
+};
+
+StructuredBuffer<InstanceData> CurrPos : register(t0); // same as CurrPosIn after swap
 
 struct VsInput
 {
@@ -35,9 +47,9 @@ VS_OUTPUT main(VsInput input)
     VS_OUTPUT output;
     
     float2 quad = float2(input.pos.x / aspectRatio, input.pos.y);
-    float2 finalPos = quad + CurrPos[input.instanceId];
+    float2 finalPos = quad + float2(CurrPos[input.instanceId].x, CurrPos[input.instanceId].y);
     
     output.position = float4(finalPos, 0.0f, 1.0f);
-    output.color = float4(1, 1, 1, 1);
+    output.color = CurrPos[input.instanceId].color;
 	return output;
 }

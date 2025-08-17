@@ -79,7 +79,13 @@ void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int bloc
 
 	for(UINT i = 0; i < instanceCount; ++i)
 	{
-		instances.push_back({ RandomGenerator::Generate(-1.0f,1.0f), RandomGenerator::Generate(-1.0f,1.0f) });
+		// { RandomGenerator::Generate(-1.0f,1.0f), RandomGenerator::Generate(-1.0f,1.0f) }
+		InstanceData instance;
+		instance.posX = 0;
+		instance.posY = 0;
+		instance.color = DirectX::XMFLOAT4(RandomGenerator::Generate(0.1f, 1.0f), RandomGenerator::Generate(0.1f, 1.0f), RandomGenerator::Generate(0.1f, 1.0f), 1.0f);
+
+		instances.emplace(instances.begin() + i, instance);
 	}
 
 	CreateMeshes();
