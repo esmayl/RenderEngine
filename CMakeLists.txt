@@ -53,18 +53,35 @@ function(compile_shader SHADER_NAME SHADER_TYPE)
     set(COMPILED_SHADER_FILES ${COMPILED_SHADER_FILES} ${CSO_FILE} PARENT_SCOPE)
 endfunction()
 
-# --- Compile All Shaders ---
-# Define all shaders and their types here
-compile_shader(FlockComputeShader cs_5_0)
-compile_shader(FlockVertexShader vs_5_0)
-compile_shader(PlainPixelShader ps_5_0)
-compile_shader(SquareWaveVertexShader vs_5_0)
-compile_shader(TextPixelShader ps_5_0)
-compile_shader(TextVertexShader vs_5_0)
+# Collect all HLSL files
+file(GLOB ALL_HLSL "${CMAKE_CURRENT_SOURCE_DIR}/Source/Shaders/*.hlsl")
 
-# Custom target to ensure all shaders are compiled
-add_custom_target(CompileShaders ALL DEPENDS ${COMPILED_SHADER_FILES})
-add_dependencies(RenderEngine CompileShaders)
+# Reset accumulator the function appends to
+set(COMPILED_SHADER_FILES)
+
+foreach(HLSL ${ALL_HLSL})
+    get_filename_component(SHADER_NAME "${HLSL}" NAME_WE)
+
+    # Infer profile from filename suffix
+    if (SHADER_NAME MATCHES "ComputeShader$")
+        set(SHADER_PROFILE cs_5_0)
+    elseif (SHADER_NAME MATCHES "VertexShader$")
+        set(SHADER_PROFILE vs_5_0)
+    elseif (SHADER_NAME MATCHES "PixelShader$")
+        set(SHADER_PROFILE ps_5_0)
+    elseif (SHADER_NAME MATCHES "GeometryShader$")
+        set(SHADER_PROFILE gs_5_0)
+    else()
+        message(STATUS "Skipping ${SHADER_NAME}.hlsl (unknown suffix)")
+        continue()
+    endif()
+
+    compile_shader("${SHADER_NAME}" "${SHADER_PROFILE}")
+endforeach()
+
+# Make a build target and hook your exe to it
+add_custom_target(Shaders ALL DEPENDS ${COMPILED_SHADER_FILES})
+add_dependencies(RenderEngine Shaders)
 
 # Copy fonts
 add_custom_command(TARGET RenderEngine POST_BUILD
