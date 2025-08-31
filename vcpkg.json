@@ -1,7 +1,13 @@
 {
-  "dependencies": [
+  "dependencies" : [
     "tinyxml2",
     "directxtk",
-    "gtest"
+    "gtest",
+    {
+      "name": "imgui",
+      "default-features": false,
+      "features": ["dx11-binding", "win32-binding"],
+      "version>=": "1.91.9"
+    }
   ]
 }

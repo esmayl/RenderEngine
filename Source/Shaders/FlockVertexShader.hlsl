@@ -15,6 +15,9 @@ cbuffer VertexInputData : register(b0)
     float deltaTime;
     int activeFoodIndex;
     int3 _paddingV;
+    float2 hazardPos;
+    float hazardRadius;
+    int hazardActive;
 }
 
 

@@ -15,6 +15,9 @@ cbuffer VertexInputData : register(b0)
     float deltaTime;
     int activeFoodIndex;
     int3 _paddingC;
+    float2 hazardPos;
+    float hazardRadius;
+    int hazardActive;
 }
 
 struct VS_INPUT
@@ -58,9 +61,26 @@ VS_OUTPUT main(VS_INPUT input)
     {
         output.color = float4(1.0f, 0.9f, 0.2f, 1.0f); // active food - yellow
     }
+    else if (indexes.x == 4)
+    {
+        output.color = float4(0.75f, 0.4f, 0.95f, 0.85f); // hazard - purple
+    }
+    else if (indexes.x == 5)
+    {
+        output.color = float4(0.08f, 0.10f, 0.12f, 0.6f); // UI panel - translucent dark
+    }
     else
     {
         output.color = float4(1.0f, 1.0f, 1.0f, 1.0f); // default white
+    }
+
+    // Lighten effect for outlines: indexes.y = 1..3 increases lightening
+    if (indexes.y > 0)
+    {
+        float t = saturate(0.15f * indexes.y);
+        float a = output.color.a * (0.7f + 0.1f * indexes.y);
+        output.color.rgb = lerp(output.color.rgb, float3(1.0f, 1.0f, 1.0f), t);
+        output.color.a = a;
     }
 
     return output;

@@ -10,7 +10,8 @@ SamplerState g_samplerState : register(s0);
 
 float4 main(VS_OUTPUT input) : SV_TARGET
 {
-    float fontColor = (float)g_fontTexture.Sample(g_samplerState, input.uv);
-
-    return float4(1.0, 1.0, 1.0, fontColor);
+    float4 sample = g_fontTexture.Sample(g_samplerState, input.uv);
+    // Some atlases pack coverage in R; prefer max(R, A) for robustness
+    float a = max(sample.r, sample.a);
+    return float4(1.0, 1.0, 1.0, a);
 }

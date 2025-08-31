@@ -25,4 +25,3 @@ TEST(RandomGeneratorTests, SlerpMidpointWithinRange) {
     EXPECT_GE(value, std::min(start, end));
     EXPECT_LE(value, std::max(start, end));
 }
-

@@ -1,4 +1,5 @@
 #include "Main.h"
+// Plain ImGui not used directly in WndProc
 
 int blockWidth = 1;
 int blockHeight = 1;
@@ -7,6 +8,8 @@ InstancedRendererEngine2D renderEngine;
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    // Forward input events to renderer's ImGui wrapper
+    renderEngine.ProcessEvent(uMsg, wParam, lParam);
 	switch(uMsg)
 	{
 		case WM_CREATE:
@@ -31,10 +34,54 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
         {
             int x = GET_X_LPARAM(lParam);
             int y = GET_Y_LPARAM(lParam);
-            // Pick nearest food within 24px; if none, spawn new and select
+            // Toggle selection: clicking selected node deselects; clicking another selects it; clicking empty does nothing
             int idx = renderEngine.FindNearestFoodScreen(x, y, 24.0f);
-            if(idx >= 0) { renderEngine.SetActiveFoodByIndex(idx); }
-            else { renderEngine.SetFood(x, y, 100.0f); }
+            if(idx >= 0)
+            {
+                if (idx == renderEngine.GetActiveFoodIndex())
+                {
+                    renderEngine.SetActiveFoodByIndex(-1); // deselect
+                }
+                else
+                {
+                    renderEngine.SetActiveFoodByIndex(idx);
+                }
+            }
+            return 0;
+        }
+        case WM_KEYUP:
+        {
+            if(wParam == 'R')
+            {
+                renderEngine.ResetGame();
+                renderEngine.StartStage(1);
+                return 0;
+            }
+            if(wParam == 'N')
+            {
+                renderEngine.AdvanceStage();
+                return 0;
+            }
+            if(wParam == 'E')
+            {
+                renderEngine.ToggleEndless(true);
+                return 0;
+            }
+            if(wParam == '1' || wParam == VK_NUMPAD1)
+            {
+                renderEngine.ApplyUpgrade(1);
+                return 0;
+            }
+            if(wParam == '2' || wParam == VK_NUMPAD2)
+            {
+                renderEngine.ApplyUpgrade(2);
+                return 0;
+            }
+            if(wParam == '3' || wParam == VK_NUMPAD3)
+            {
+                renderEngine.ApplyUpgrade(3);
+                return 0;
+            }
             return 0;
         }
 

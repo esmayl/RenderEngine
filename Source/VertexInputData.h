@@ -22,11 +22,16 @@ struct VertexInputData
 	float jitter;
 
 	float previousTargetPosX;
-		float previousTargetPosY;
-		float flockTransitionTime;
-		float deltaTime;
-		int activeFoodIndex;
-		int paddingA;
-		int paddingB;
-		int paddingC;
-	}; // Total needs to be multiples of 16 bytes otherwise buffer cannot be created
+    float previousTargetPosY;
+    float flockTransitionTime;
+    float deltaTime;
+    int activeFoodIndex;
+    int paddingA;
+    int paddingB;
+    int paddingC;
+    // Hazard (UI/gameplay) data
+    float hazardPosX;
+    float hazardPosY;
+    float hazardRadius;
+    int hazardActive;
+}; // Total needs to be multiples of 16 bytes otherwise buffer cannot be created

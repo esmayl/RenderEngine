@@ -15,6 +15,9 @@ cbuffer VertexInputData : register(b0)
     float deltaTime;
     int activeFoodIndex;
     int3 _paddingVc;
+    float2 hazardPos;
+    float hazardRadius;
+    int hazardActive;
 }
 
 struct InstanceData
@@ -69,6 +72,18 @@ void main(uint3 threadId : SV_DispatchThreadID)
         float2 side = float2(-baseDir.y, baseDir.x);
         float amp = CurrPosIn[id].laneOffset * saturate(d / 0.2f); // fade near goal
         float2 steer = normalize(baseDir + side * amp);
+        // Hazard repulsion
+        if(hazardActive != 0)
+        {
+            float2 toHaz = pos - hazardPos;
+            float dh = length(toHaz);
+            if(dh < hazardRadius && dh > 1e-5f)
+            {
+                float2 away = toHaz / dh;
+                float push = saturate(1.0f - dh / hazardRadius);
+                steer = normalize(steer + away * push * 1.5f);
+            }
+        }
         dir = steer;
         newPos = pos + dir * step;
     }
@@ -99,6 +114,17 @@ void main(uint3 threadId : SV_DispatchThreadID)
             float2 side = float2(-baseDir.y, baseDir.x);
             float amp = CurrPosIn[id].laneOffset * saturate(distNest / 0.2f);
             float2 steer = normalize(baseDir + side * amp);
+            if(hazardActive != 0)
+            {
+                float2 toHaz = pos - hazardPos;
+                float dh = length(toHaz);
+                if(dh < hazardRadius && dh > 1e-5f)
+                {
+                    float2 away = toHaz / dh;
+                    float push = saturate(1.0f - dh / hazardRadius);
+                    steer = normalize(steer + away * push * 1.5f);
+                }
+            }
             dir = steer;
             newPos = pos + dir * step;
         }
@@ -108,12 +134,21 @@ void main(uint3 threadId : SV_DispatchThreadID)
             newPos = pos;
         }
 
-        // Arrived at nest -> go to current global food
+        // Arrived at nest -> go to current global food only if one is active
         if(distNest <= stopDistance)
         {
-            newState = 0;
-            CurrPosOut[id].goalX = food.x;
-            CurrPosOut[id].goalY = food.y;
+            if (activeFoodIndex < 0)
+            {
+                newState = 1;
+                CurrPosOut[id].goalX = nest.x;
+                CurrPosOut[id].goalY = nest.y;
+            }
+            else
+            {
+                newState = 0;
+                CurrPosOut[id].goalX = food.x;
+                CurrPosOut[id].goalY = food.y;
+            }
         }
         else
         {

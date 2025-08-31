@@ -13,6 +13,7 @@ add_executable(RenderEngine WIN32 ${SOURCE_FILES})
 # vcpkg will find these packages using the toolchain file configured in CLion
 find_package(tinyxml2 CONFIG REQUIRED)
 find_package(directxtk CONFIG REQUIRED)
+find_package(imgui CONFIG REQUIRED)
 
 # --- Include Directories ---
 target_include_directories(RenderEngine PUBLIC
@@ -34,6 +35,7 @@ target_link_libraries(RenderEngine PRIVATE
         d3dcompiler.lib
         tinyxml2::tinyxml2
         Microsoft::DirectXTK
+        imgui::imgui
         )
 
 # --- Shader Compilation Function ---
@@ -93,6 +95,8 @@ add_custom_command(TARGET RenderEngine POST_BUILD
 # --- Tests ---
 include(CTest)
 if (BUILD_TESTING)
+    enable_testing()
+
     find_package(GTest CONFIG REQUIRED)
 
     add_executable(RenderEngineTests
