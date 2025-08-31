@@ -27,11 +27,23 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			return 0;
 		}
 
-		case WM_LBUTTONUP:
+        case WM_LBUTTONUP:
+        {
+            int x = GET_X_LPARAM(lParam);
+            int y = GET_Y_LPARAM(lParam);
+            // Pick nearest food within 24px; if none, spawn new and select
+            int idx = renderEngine.FindNearestFoodScreen(x, y, 24.0f);
+            if(idx >= 0) { renderEngine.SetActiveFoodByIndex(idx); }
+            else { renderEngine.SetFood(x, y, 100.0f); }
+            return 0;
+        }
+
+		case WM_RBUTTONUP:
 		{
-			int x = GET_X_LPARAM(lParam); // signed int to take into account minus values
-			int y = GET_Y_LPARAM(lParam); // signed int to take into account minus values
-			renderEngine.SetFlockTarget(x,y);
+			int x = GET_X_LPARAM(lParam);
+			int y = GET_Y_LPARAM(lParam);
+			// Right click sets the nest position
+			renderEngine.SetNest(x, y);
 			return 0;
 		}
 

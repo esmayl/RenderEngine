@@ -13,6 +13,8 @@ cbuffer VertexInputData : register(b0)
     float2 previousTargetPos;
     float flockTransitionTime;
     float deltaTime;
+    int activeFoodIndex;
+    int3 _paddingV;
 }
 
 
@@ -22,6 +24,10 @@ struct InstanceData
     float y;
     float directionX;
     float directionY;
+    float goalX;
+    float goalY;
+    float laneOffset;
+    float speedScale;
     float4 color;
     int movementState;
 };
@@ -50,6 +56,22 @@ VS_OUTPUT main(VsInput input)
     float2 finalPos = quad + float2(CurrPos[input.instanceId].x, CurrPos[input.instanceId].y);
     
     output.position = float4(finalPos, 0.0f, 1.0f);
-    output.color = CurrPos[input.instanceId].color;
-	return output;
+    
+    // Visual cue:
+    // - ToFood ants heading to current active food: yellow
+    // - ToFood ants heading to old food: orange
+    // - ToNest ants: cyan
+    int state = CurrPos[input.instanceId].movementState;
+    float2 goal = float2(CurrPos[input.instanceId].goalX, CurrPos[input.instanceId].goalY);
+    bool towardCurrent = distance(goal, targetPos) < 1e-3f;
+    if (state == 0)
+    {
+        output.color = towardCurrent ? float4(1.0f, 0.9f, 0.2f, 1.0f)
+                                     : float4(1.0f, 0.6f, 0.2f, 1.0f);
+    }
+    else
+    {
+        output.color = float4(0.2f, 0.9f, 0.9f, 1.0f);
+    }
+    return output;
 }

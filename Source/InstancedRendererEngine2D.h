@@ -16,6 +16,7 @@
 #include "Objects/SquareMesh.h"
 #include "Objects/TriangleMesh.h"
 #include "Font.h"
+#include "Vector2D.h"
 
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
@@ -33,8 +34,19 @@ class InstancedRendererEngine2D : public BaseRenderer
 		void RenderWavingGrid(int gridWidth, int gridHeight);
 		void RenderFlock(int instanceCount);
 		void RenderFpsText(int xPos, int yPos, int fontSize);
+		void RenderHud();
+		void RenderText(int xPos, int yPos, int fontSize, const wchar_t* text);
 
 		void SetFlockTarget(int x, int y);
+		void SetFood(int x, int y, float amount);
+		void SetNest(int x, int y);
+		void UpdateGame(double dt);
+
+		// Food system
+		void SpawnRandomFood(int count);
+		void SpawnFoodAtScreen(int x, int y, float amount);
+		int  FindNearestFoodScreen(int x, int y, float maxPixelRadius) const;
+		void SetActiveFoodByIndex(int index);
 
 	private:
 		std::chrono::time_point<std::chrono::steady_clock> startTime;
@@ -58,6 +70,7 @@ class InstancedRendererEngine2D : public BaseRenderer
 		ID3D11VertexShader* waveVertexShader;
 		ID3D11VertexShader* textVertexShader;
 		ID3D11VertexShader* flockVertexShader;
+		ID3D11VertexShader* colorVertexShader;
 		ID3D11PixelShader* plainPixelShader;
 		ID3D11PixelShader* textPixelShader;
 		ID3D11ComputeShader* flockComputeShader;
@@ -92,9 +105,30 @@ class InstancedRendererEngine2D : public BaseRenderer
 		void InitRenderBufferAndTargetView(HRESULT& hr);
 		void SetupVerticesAndShaders(UINT& stride, UINT& offset, UINT bufferCount, Mesh* mesh, ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader);
 		void PassInputDataAndRunInstanced(ID3D11Buffer* pConstantBuffer, VertexInputData& cbData, Mesh& mesh, int instanceCount);
+		void RenderMarker(const Vector2D& ndcPos, float size, int colorCode);
 
 		Vector2D flockTarget;
 		Vector2D previousFlockTarget;
 		double flockTransitionTime;
 		double flockFrozenTime;
+
+		// Game state
+		Vector2D nestPos{0.0f, 0.0f};
+		struct FoodNode { Vector2D pos; float amount; };
+		std::vector<FoodNode> foodNodes;
+		int activeFoodIndex = -1;
+		float minFoodSpacing = 0.12f; // NDC units, keep nodes separated
+		float defaultFoodAmount = 100.0f;
+		int maxAnts = 512;
+		int activeAnts = 64;
+		double spawnAccumulator = 0.0;
+		float antsPerSecond = 32.0f;
+		int score = 0;
+		float antSpeed = 0.5f; // must match cbData.speed
+		float followDistance = 0.05f; // must match compute shader
+		double legElapsed = 0.0;
+		double travelTime = 0.0;
+		float scoreCarryAccum = 0.0f;
+		enum class AntMode { Idle, ToFood, ToNest };
+		AntMode mode = AntMode::Idle;
 };

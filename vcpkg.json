@@ -1,6 +1,7 @@
 {
   "dependencies": [
     "tinyxml2",
-    "directxtk"
+    "directxtk",
+    "gtest"
   ]
 }

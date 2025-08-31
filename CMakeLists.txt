@@ -89,3 +89,27 @@ add_custom_command(TARGET RenderEngine POST_BUILD
         "${CMAKE_CURRENT_SOURCE_DIR}/Fonts"
         "$<TARGET_FILE_DIR:RenderEngine>"
         COMMENT "Copying fonts to output directory")
+
+# --- Tests ---
+include(CTest)
+if (BUILD_TESTING)
+    find_package(GTest CONFIG REQUIRED)
+
+    add_executable(RenderEngineTests
+            tests/RandomGeneratorTests.cpp
+            Source/RandomGenerator.cpp)
+
+    target_include_directories(RenderEngineTests PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/Source")
+
+    target_compile_definitions(RenderEngineTests PRIVATE
+            UNICODE
+            _UNICODE)
+
+    target_link_libraries(RenderEngineTests PRIVATE
+            GTest::gtest
+            GTest::gtest_main)
+
+    include(GoogleTest)
+    gtest_discover_tests(RenderEngineTests)
+endif ()
