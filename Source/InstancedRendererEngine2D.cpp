@@ -130,12 +130,18 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 		return;
 	}
 
-	// Define a color to clear the window to.
-	const float clearColor[4] = { 0.0f, 0.2f, 0.4f, 1.0f }; // A nice blue
+    // Define a darker sand-like background to reduce brightness.
+    const float clearColor[4] = { 0.55f, 0.50f, 0.40f, 1.0f };
 
-	pDeviceContext->ClearRenderTargetView(renderTargetView, clearColor); // Clear the back buffer.
+    pDeviceContext->ClearRenderTargetView(renderTargetView, clearColor); // Clear the back buffer.
 
-	RenderWavingGrid(150,80);
+    // Ensure alpha blending is active each frame (ImGui resets states)
+    if (blendState)
+    {
+        float blendFactor[4] = { 0,0,0,0 };
+        UINT  sampleMask = 0xFFFFFFFF;
+        pDeviceContext->OMSetBlendState(blendState, blendFactor, sampleMask);
+    }
 
 	// Update simple game loop and render the ant line
 	UpdateGame(deltaTime);
@@ -144,6 +150,10 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
     // Markers: nest + all foods (geometry only)
     RenderMarker(nestPos, 2.0f, 2);
     RenderFoodMarkers();
+    // Rain overlay on food only
+    if (slowActive) {
+        RenderRainOverlay();
+    }
     // Hover outline overlay on top of fills
     POINT mp; GetCursorPos(&mp); ScreenToClient(windowHandle, &mp);
     int hoverIdx = FindNearestFoodScreen(mp.x, mp.y, 24.0f);
@@ -189,7 +199,7 @@ void InstancedRendererEngine2D::OnPaint(HWND windowHandle)
 	// Present the back buffer to the screen.
 	// The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
 	// Change to 0 to disable V-Sync.
-	pSwapChain->Present(0, 0);
+	pSwapChain->Present(1, 0);
 }
 
 void InstancedRendererEngine2D::OnResize(int newWidth, int newHeight)
@@ -216,6 +226,8 @@ void InstancedRendererEngine2D::OnShutdown()
     delete square;
     delete triangle;
     delete font;
+    if (blendState) { blendState->Release(); blendState = nullptr; }
+    SafeRelease(&scissorRasterizer);
     if (imgui) { imgui->Shutdown(); delete imgui; imgui = nullptr; }
 }
 
@@ -239,36 +251,36 @@ void InstancedRendererEngine2D::SetupViewport(UINT newWidth, UINT newHeight)
 
 void InstancedRendererEngine2D::InitRenderBufferAndTargetView(HRESULT& hr)
 {
-	hr = pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&backBuffer);
-	if(FAILED(hr))  throw std::runtime_error("Failed to create backBuffer");
+    hr = pSwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), (void**)&backBuffer);
+    if(FAILED(hr))  throw std::runtime_error("Failed to create backBuffer");
 
-	hr = pDevice->CreateRenderTargetView(backBuffer, nullptr, &renderTargetView);
-	if(FAILED(hr))  throw std::runtime_error("Failed to create renderTargetView");
+    hr = pDevice->CreateRenderTargetView(backBuffer, nullptr, &renderTargetView);
+    if(FAILED(hr))  throw std::runtime_error("Failed to create renderTargetView");
 
-	pDeviceContext->OMSetRenderTargets(1, &renderTargetView, nullptr);
+    pDeviceContext->OMSetRenderTargets(1, &renderTargetView, nullptr);
 
-	// Setup alpha blending
-	D3D11_BLEND_DESC bsDesc = {};
-	bsDesc.AlphaToCoverageEnable = FALSE;
-	bsDesc.IndependentBlendEnable = FALSE;
-	bsDesc.RenderTarget[0].BlendEnable = TRUE;
-	bsDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-	bsDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-	bsDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-	bsDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-	bsDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
-	bsDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-	bsDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+    // Setup alpha blending
+    if (blendState) { blendState->Release(); blendState = nullptr; }
+    D3D11_BLEND_DESC bsDesc = {};
+    bsDesc.AlphaToCoverageEnable = FALSE;
+    bsDesc.IndependentBlendEnable = FALSE;
+    bsDesc.RenderTarget[0].BlendEnable = TRUE;
+    bsDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+    bsDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+    bsDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+    bsDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+    bsDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+    bsDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    bsDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
 
-	ID3D11BlendState* pBlendState = nullptr;
-	hr = pDevice->CreateBlendState(&bsDesc, &pBlendState);
+    hr = pDevice->CreateBlendState(&bsDesc, &blendState);
 
-	if(FAILED(hr)) throw std::runtime_error("Failed to create blend state");
+    if(FAILED(hr)) throw std::runtime_error("Failed to create blend state");
 
-	float blendFactor[4] = { 0,0,0,0 };
-	UINT  sampleMask = 0xFFFFFFFF;
+    float blendFactor[4] = { 0,0,0,0 };
+    UINT  sampleMask = 0xFFFFFFFF;
 
-	pDeviceContext->OMSetBlendState(pBlendState, blendFactor, sampleMask);
+    pDeviceContext->OMSetBlendState(blendState, blendFactor, sampleMask);
 }
 
 void InstancedRendererEngine2D::CountFps()
@@ -391,7 +403,7 @@ void InstancedRendererEngine2D::CreateBuffers()
     // Food hit counts buffer (uint per node)
     D3D11_BUFFER_DESC countDesc = {};
     countDesc.Usage = D3D11_USAGE_DEFAULT;
-    countDesc.ByteWidth = sizeof(UINT) * MaxFoodNodes;
+    countDesc.ByteWidth = sizeof(UINT) * MaxFoodNodes * HitBins;
     countDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
     countDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
     countDesc.StructureByteStride = sizeof(UINT);
@@ -404,16 +416,20 @@ void InstancedRendererEngine2D::CreateBuffers()
     uavdc.Buffer.NumElements = MaxFoodNodes;
     hr = pDevice->CreateUnorderedAccessView(foodCountBuffer, &uavdc, &foodCountUAV);
     if(FAILED(hr)) throw std::runtime_error("Failed to create foodCountUAV");
-    // Staging buffer for readback
+    // Staging buffers (ring) for readback
     D3D11_BUFFER_DESC rb = countDesc; rb.Usage = D3D11_USAGE_STAGING; rb.BindFlags = 0; rb.CPUAccessFlags = D3D11_CPU_ACCESS_READ; rb.MiscFlags = 0;
-    hr = pDevice->CreateBuffer(&rb, nullptr, &foodCountReadback);
+    for(int i=0;i<3;i++) { hr = pDevice->CreateBuffer(&rb, nullptr, &foodCountReadback[i]); if(FAILED(hr)) throw std::runtime_error("Failed to create foodCountReadback"); }
+    // Create event queries for non-blocking mapping
+    D3D11_QUERY_DESC qd = {}; qd.Query = D3D11_QUERY_EVENT; qd.MiscFlags = 0;
+    for(int i=0;i<3;i++) { hr = pDevice->CreateQuery(&qd, &foodQuery[i]); if(FAILED(hr)) throw std::runtime_error("Failed to create foodQuery"); }
 
     // Nest hit counts buffer
     hr = pDevice->CreateBuffer(&countDesc, nullptr, &nestCountBuffer);
     if(FAILED(hr)) throw std::runtime_error("Failed to create nestCountBuffer");
     hr = pDevice->CreateUnorderedAccessView(nestCountBuffer, &uavdc, &nestCountUAV);
     if(FAILED(hr)) throw std::runtime_error("Failed to create nestCountUAV");
-    hr = pDevice->CreateBuffer(&rb, nullptr, &nestCountReadback);
+    for(int i=0;i<3;i++) { hr = pDevice->CreateBuffer(&rb, nullptr, &nestCountReadback[i]); if(FAILED(hr)) throw std::runtime_error("Failed to create nestCountReadback"); }
+    for(int i=0;i<3;i++) { hr = pDevice->CreateQuery(&qd, &nestQuery[i]); if(FAILED(hr)) throw std::runtime_error("Failed to create nestQuery"); }
 }
 
 void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
@@ -652,10 +668,10 @@ void InstancedRendererEngine2D::RunComputeShader(ID3D11Buffer* buffer, VertexInp
     ID3D11ShaderResourceView* srvs[] = { shaderResourceViewA };
     pDeviceContext->CSSetShaderResources(0, 1, srvs);
 
-    // Clear hit counts to zero each frame
-    UINT zeros[MaxFoodNodes] = {};
-    pDeviceContext->UpdateSubresource(foodCountBuffer, 0, nullptr, zeros, 0, 0);
-    pDeviceContext->UpdateSubresource(nestCountBuffer, 0, nullptr, zeros, 0, 0);
+    // Clear hit counts to zero each frame via UAV clears
+    const UINT zeros4[4] = {0,0,0,0};
+    pDeviceContext->ClearUnorderedAccessViewUint(foodCountUAV, zeros4);
+    pDeviceContext->ClearUnorderedAccessViewUint(nestCountUAV, zeros4);
 
     ID3D11UnorderedAccessView* uavs[] = { unorderedAccessViewB, foodCountUAV, nestCountUAV };
     UINT initialCounts[] = { 0, 0, 0 };
@@ -670,32 +686,44 @@ void InstancedRendererEngine2D::RunComputeShader(ID3D11Buffer* buffer, VertexInp
     pDeviceContext->CopyResource(instanceBuffer, computeBufferA);
 
     // Read back food counts and decrease amounts per node
-    pDeviceContext->CopyResource(foodCountReadback, foodCountBuffer);
+    int w = readbackCursor;
+    int r = (readbackCursor + 1) % 3;
+    pDeviceContext->CopyResource(foodCountReadback[w], foodCountBuffer);
+    pDeviceContext->End(foodQuery[w]);
     D3D11_MAPPED_SUBRESOURCE mapped = {};
-    if (SUCCEEDED(pDeviceContext->Map(foodCountReadback, 0, D3D11_MAP_READ, 0, &mapped)))
+    if (pDeviceContext->GetData(foodQuery[r], nullptr, 0, D3D11_ASYNC_GETDATA_DONOTFLUSH) == S_OK &&
+        SUCCEEDED(pDeviceContext->Map(foodCountReadback[r], 0, D3D11_MAP_READ, 0, &mapped)))
     {
         UINT* counts = (UINT*)mapped.pData;
         size_t n = foodNodes.size();
         for (size_t i = 0; i < n && i < (size_t)MaxFoodNodes; ++i)
         {
-            if (counts[i] > 0)
+            // Sum across bins
+            UINT sum = 0;
+            for(int b=0;b<HitBins;b++) sum += counts[i*HitBins + b];
+            if (sum > 0)
             {
-                float dec = (float)counts[i];
+                float dec = (float)sum;
                 foodNodes[i].amount = max(0.0f, foodNodes[i].amount - dec);
             }
         }
-        pDeviceContext->Unmap(foodCountReadback, 0);
+        pDeviceContext->Unmap(foodCountReadback[r], 0);
     }
 
     // Read back nest counts and add to score/stageScore
-    pDeviceContext->CopyResource(nestCountReadback, nestCountBuffer);
+    pDeviceContext->CopyResource(nestCountReadback[w], nestCountBuffer);
+    pDeviceContext->End(nestQuery[w]);
     D3D11_MAPPED_SUBRESOURCE mappedN = {};
-    if (SUCCEEDED(pDeviceContext->Map(nestCountReadback, 0, D3D11_MAP_READ, 0, &mappedN)))
+    if (pDeviceContext->GetData(nestQuery[r], nullptr, 0, D3D11_ASYNC_GETDATA_DONOTFLUSH) == S_OK &&
+        SUCCEEDED(pDeviceContext->Map(nestCountReadback[r], 0, D3D11_MAP_READ, 0, &mappedN)))
     {
         UINT* countsN = (UINT*)mappedN.pData;
         UINT totalHits = 0;
         size_t n = foodNodes.size();
-        for (size_t i = 0; i < n && i < (size_t)MaxFoodNodes; ++i) totalHits += countsN[i];
+        for (size_t i = 0; i < n && i < (size_t)MaxFoodNodes; ++i)
+        {
+            for(int b=0;b<HitBins;b++) totalHits += countsN[i*HitBins + b];
+        }
         if (totalHits > 0)
         {
             // Combo handling
@@ -705,7 +733,7 @@ void InstancedRendererEngine2D::RunComputeShader(ID3D11Buffer* buffer, VertexInp
             score += add;
             stageScore += add;
         }
-        pDeviceContext->Unmap(nestCountReadback, 0);
+        pDeviceContext->Unmap(nestCountReadback[r], 0);
     }
 
 	// Swap,  backbuffer style
@@ -719,6 +747,8 @@ void InstancedRendererEngine2D::RunComputeShader(ID3D11Buffer* buffer, VertexInp
     pDeviceContext->CSSetShaderResources(0, 1, nullSRVs);
     pDeviceContext->CSSetUnorderedAccessViews(0, 3, nullUAVs, nullptr);
     pDeviceContext->CSSetShader(nullptr, nullptr, 0);
+
+    readbackCursor = (readbackCursor + 1) % 3;
 }
 
 void InstancedRendererEngine2D::RenderMarker(const Vector2D& ndcPos, float size, int colorCode)
@@ -948,6 +978,16 @@ void InstancedRendererEngine2D::RenderUI()
         }
         ImGui::End();
     }
+}
+
+void InstancedRendererEngine2D::RenderRainOverlay()
+{
+    if (!square || !waveVertexShader || !plainPixelShader) return;
+
+    // Full-field translucent wave overlay. UI is drawn after this, so it remains unaffected.
+    const int gridX = 160;
+    const int gridY = 90;
+    RenderWavingGrid(gridX, gridY);
 }
 
 void InstancedRendererEngine2D::LoadSettings()

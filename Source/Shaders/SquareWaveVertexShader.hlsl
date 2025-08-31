@@ -46,8 +46,10 @@ VS_OUTPUT main(VsInput input)
 	
     output.position = float4(input.pos, 1.0f);
 	
-    float b = saturate(1 - sinWave);
-    output.color = float4(0.0f, 0.0f, b,1.0f); // Black to Blue, fully opaque
+    // Subtle teal tint with mild shimmering based on phase
+    float phase = sin(time * speed - ((float)i + j));
+    float tint = 0.7f + 0.3f * (0.5f + 0.5f * phase); // 0.7..1.0
+    output.color = float4(0.0f, 0.60f * tint, 0.55f * tint, 0.2f);
 	
 	return output;
 };

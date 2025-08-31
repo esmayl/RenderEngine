@@ -97,8 +97,10 @@ class InstancedRendererEngine2D : public BaseRenderer
             ID3D11PixelShader* plainPixelShader;
             ID3D11PixelShader* textPixelShader;
             ID3D11ComputeShader* flockComputeShader;
-		ID3D11InputLayout* pInputLayout; // Used to define input variables for the shaders
-		ID3D11InputLayout* flockInputLayout; // Used to define input variables for the shaders
+            ID3D11InputLayout* pInputLayout; // Used to define input variables for the shaders
+            ID3D11InputLayout* flockInputLayout; // Used to define input variables for the shaders
+            ID3D11RasterizerState* scissorRasterizer = nullptr; // For rain overlay clipping
+            ID3D11BlendState* blendState = nullptr; // Persistent alpha blend state
 
 		std::vector<InstanceData> instances;
 		ID3D11Buffer* instanceBuffer;
@@ -111,15 +113,19 @@ class InstancedRendererEngine2D : public BaseRenderer
             ID3D11UnorderedAccessView* unorderedAccessViewB = nullptr;
             ID3D11Buffer* computeBufferA = nullptr;
             ID3D11Buffer* computeBufferB = nullptr;
-            // Food hit counts (GPU)
+            // Food/nest hit counts (GPU) with simple binning to reduce atomics contention
             static const int MaxFoodNodes = 128;
+            static const int HitBins = 8;
             ID3D11Buffer* foodCountBuffer = nullptr;
             ID3D11UnorderedAccessView* foodCountUAV = nullptr;
-            ID3D11Buffer* foodCountReadback = nullptr;
+            ID3D11Buffer* foodCountReadback[3] = {nullptr,nullptr,nullptr};
+            ID3D11Query* foodQuery[3] = {nullptr,nullptr,nullptr};
             // Nest hit counts (GPU)
             ID3D11Buffer* nestCountBuffer = nullptr;
             ID3D11UnorderedAccessView* nestCountUAV = nullptr;
-            ID3D11Buffer* nestCountReadback = nullptr;
+            ID3D11Buffer* nestCountReadback[3] = {nullptr,nullptr,nullptr};
+            ID3D11Query* nestQuery[3] = {nullptr,nullptr,nullptr};
+            int readbackCursor = 0;
 
 		UINT screenWidth;
 		UINT screenHeight;
@@ -142,6 +148,7 @@ class InstancedRendererEngine2D : public BaseRenderer
             void RenderMarkerWithMesh(Mesh* mesh, const Vector2D& ndcTopLeft, float sizeX, float sizeY, int colorCode, int lightenLevel=0);
             void RenderPanel(const Vector2D& ndcCenter, float sizeX, float sizeY, int colorCode);
             void RenderUIPanel(int x, int y, int width, int height, float r, float g, float b, float a);
+            void RenderRainOverlay();
 
 		Vector2D flockTarget;
 		Vector2D previousFlockTarget;
