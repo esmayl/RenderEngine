@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <vector>
+#include <deque>
 #include <d3d11.h>
 #include <dxgi.h>
 #include <d3dcompiler.h> // Needed for compiling shaders
@@ -66,6 +67,7 @@ class InstancedRendererEngine2D : public BaseRenderer
             void AdvanceStage();
             void ApplyUpgrade(int option);
             void ToggleEndless(bool enabled);
+            void RebuildDepartureStagger();
 
 	private:
 		std::chrono::time_point<std::chrono::steady_clock> startTime;
@@ -106,9 +108,18 @@ class InstancedRendererEngine2D : public BaseRenderer
 		ID3D11ShaderResourceView* shaderResourceViewA = nullptr;
 		ID3D11ShaderResourceView* shaderResourceViewB = nullptr;
 		ID3D11UnorderedAccessView* unorderedAccessViewA = nullptr;
-		ID3D11UnorderedAccessView* unorderedAccessViewB = nullptr;
-		ID3D11Buffer* computeBufferA = nullptr;
-		ID3D11Buffer* computeBufferB = nullptr;
+            ID3D11UnorderedAccessView* unorderedAccessViewB = nullptr;
+            ID3D11Buffer* computeBufferA = nullptr;
+            ID3D11Buffer* computeBufferB = nullptr;
+            // Food hit counts (GPU)
+            static const int MaxFoodNodes = 128;
+            ID3D11Buffer* foodCountBuffer = nullptr;
+            ID3D11UnorderedAccessView* foodCountUAV = nullptr;
+            ID3D11Buffer* foodCountReadback = nullptr;
+            // Nest hit counts (GPU)
+            ID3D11Buffer* nestCountBuffer = nullptr;
+            ID3D11UnorderedAccessView* nestCountUAV = nullptr;
+            ID3D11Buffer* nestCountReadback = nullptr;
 
 		UINT screenWidth;
 		UINT screenHeight;
@@ -142,18 +153,28 @@ class InstancedRendererEngine2D : public BaseRenderer
             std::vector<FoodNode> foodNodes;
             int activeFoodIndex = -1;
             float minFoodSpacing = 0.12f; // NDC units, keep nodes separated
-			float defaultFoodAmount = 100.0f;
+            float defaultFoodAmount = 100.0f;
+            int depositingFoodIndex = -1;
             int maxAnts = 512;
             int activeAnts = 64;
             double spawnAccumulator = 0.0;
             float antsPerSecond = 32.0f;
             int score = 0;
             float antSpeed = 0.5f; // must match cbData.speed
+            float initialSpeed = 0.5f; // from settings.ini
             float followDistance = 0.05f; // must match compute shader
             double legElapsed = 0.0;
             double travelTime = 0.0;
             float scoreCarryAccum = 0.0f;
             AntMode mode = AntMode::Idle;
+
+            // Spawning queue: delay new ants before activation
+            std::deque<double> pendingSpawns;
+
+            // Settings
+            int initialAnts = 10;
+            double spawnDelaySec = 0.1;
+            void LoadSettings();
 
             // Stage system
             GameState gameState = GameState::Playing;

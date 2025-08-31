@@ -94,8 +94,10 @@ void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int bloc
         instance.goalY = nestPos.y;
         instance.laneOffset = RandomGenerator::Generate(-0.03f, 0.03f);
         instance.speedScale = RandomGenerator::Generate(0.85f, 1.15f);
+        instance.holdTimer = 0.0f;
         instance.color = DirectX::XMFLOAT4(RandomGenerator::Generate(0.1f, 1.0f), RandomGenerator::Generate(0.1f, 1.0f), RandomGenerator::Generate(0.1f, 1.0f), 1.0f);
         instance.movementState = 0; // start heading to food
+        instance.sourceIndex = -1;
 
         instances.emplace(instances.begin() + i, instance);
     }
@@ -103,6 +105,9 @@ void InstancedRendererEngine2D::Init(HWND windowHandle, int blockWidth, int bloc
     // ImGui wrapper
     imgui = new ImGuiRenderer();
     imgui->Init(windowHandle, pDevice, pDeviceContext);
+
+    // Load settings (optional file)
+    LoadSettings();
 
     // Start game & stage
     ResetGame();
@@ -339,8 +344,8 @@ void InstancedRendererEngine2D::CreateBuffers()
 	instanceBufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 	instanceBufferDesc.StructureByteStride = sizeof(InstanceData);
 
-	hr = pDevice->CreateBuffer(&instanceBufferDesc, nullptr, &computeBufferA);
-	hr = pDevice->CreateBuffer(&instanceBufferDesc, nullptr, &computeBufferB);
+    hr = pDevice->CreateBuffer(&instanceBufferDesc, nullptr, &computeBufferA);
+    hr = pDevice->CreateBuffer(&instanceBufferDesc, nullptr, &computeBufferB);
 	
 	if(FAILED(hr)) throw std::runtime_error("Failed to create computerBuffer A or B");
 
@@ -381,7 +386,34 @@ void InstancedRendererEngine2D::CreateBuffers()
 	instanceVBDesc.CPUAccessFlags = 0;
 	instanceVBDesc.MiscFlags = 0;
 
-	hr = pDevice->CreateBuffer(&instanceVBDesc, nullptr, &instanceBuffer);
+    hr = pDevice->CreateBuffer(&instanceVBDesc, nullptr, &instanceBuffer);
+
+    // Food hit counts buffer (uint per node)
+    D3D11_BUFFER_DESC countDesc = {};
+    countDesc.Usage = D3D11_USAGE_DEFAULT;
+    countDesc.ByteWidth = sizeof(UINT) * MaxFoodNodes;
+    countDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+    countDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    countDesc.StructureByteStride = sizeof(UINT);
+    hr = pDevice->CreateBuffer(&countDesc, nullptr, &foodCountBuffer);
+    if(FAILED(hr)) throw std::runtime_error("Failed to create foodCountBuffer");
+    D3D11_UNORDERED_ACCESS_VIEW_DESC uavdc = {};
+    uavdc.Format = DXGI_FORMAT_UNKNOWN;
+    uavdc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+    uavdc.Buffer.FirstElement = 0;
+    uavdc.Buffer.NumElements = MaxFoodNodes;
+    hr = pDevice->CreateUnorderedAccessView(foodCountBuffer, &uavdc, &foodCountUAV);
+    if(FAILED(hr)) throw std::runtime_error("Failed to create foodCountUAV");
+    // Staging buffer for readback
+    D3D11_BUFFER_DESC rb = countDesc; rb.Usage = D3D11_USAGE_STAGING; rb.BindFlags = 0; rb.CPUAccessFlags = D3D11_CPU_ACCESS_READ; rb.MiscFlags = 0;
+    hr = pDevice->CreateBuffer(&rb, nullptr, &foodCountReadback);
+
+    // Nest hit counts buffer
+    hr = pDevice->CreateBuffer(&countDesc, nullptr, &nestCountBuffer);
+    if(FAILED(hr)) throw std::runtime_error("Failed to create nestCountBuffer");
+    hr = pDevice->CreateUnorderedAccessView(nestCountBuffer, &uavdc, &nestCountUAV);
+    if(FAILED(hr)) throw std::runtime_error("Failed to create nestCountUAV");
+    hr = pDevice->CreateBuffer(&rb, nullptr, &nestCountReadback);
 }
 
 void InstancedRendererEngine2D::RenderWavingGrid(int gridWidth, int gridHeight)
@@ -617,12 +649,17 @@ void InstancedRendererEngine2D::PassInputDataAndRunInstanced(ID3D11Buffer* buffe
 
 void InstancedRendererEngine2D::RunComputeShader(ID3D11Buffer* buffer, VertexInputData& cbData, int instanceCount, ID3D11ComputeShader* computeShader)
 {
-	ID3D11ShaderResourceView* srvs[] = { shaderResourceViewA };
-	pDeviceContext->CSSetShaderResources(0, 1, srvs);
+    ID3D11ShaderResourceView* srvs[] = { shaderResourceViewA };
+    pDeviceContext->CSSetShaderResources(0, 1, srvs);
 
-	ID3D11UnorderedAccessView* uavs[] = { unorderedAccessViewB };
-	UINT initialCounts[] = { 0 };
-	pDeviceContext->CSSetUnorderedAccessViews(0, 1, uavs, initialCounts);
+    // Clear hit counts to zero each frame
+    UINT zeros[MaxFoodNodes] = {};
+    pDeviceContext->UpdateSubresource(foodCountBuffer, 0, nullptr, zeros, 0, 0);
+    pDeviceContext->UpdateSubresource(nestCountBuffer, 0, nullptr, zeros, 0, 0);
+
+    ID3D11UnorderedAccessView* uavs[] = { unorderedAccessViewB, foodCountUAV, nestCountUAV };
+    UINT initialCounts[] = { 0, 0, 0 };
+    pDeviceContext->CSSetUnorderedAccessViews(0, 3, uavs, initialCounts);
 
 	pDeviceContext->UpdateSubresource(buffer, 0, nullptr, &cbData, 0, 0);
 	pDeviceContext->CSSetConstantBuffers(0, 1, &buffer);
@@ -630,7 +667,46 @@ void InstancedRendererEngine2D::RunComputeShader(ID3D11Buffer* buffer, VertexInp
 	pDeviceContext->CSSetShader(computeShader, nullptr, 0);
 	pDeviceContext->Dispatch((instanceCount + 255) / 256, 1, 1);
 
-	pDeviceContext->CopyResource(instanceBuffer, computeBufferA);
+    pDeviceContext->CopyResource(instanceBuffer, computeBufferA);
+
+    // Read back food counts and decrease amounts per node
+    pDeviceContext->CopyResource(foodCountReadback, foodCountBuffer);
+    D3D11_MAPPED_SUBRESOURCE mapped = {};
+    if (SUCCEEDED(pDeviceContext->Map(foodCountReadback, 0, D3D11_MAP_READ, 0, &mapped)))
+    {
+        UINT* counts = (UINT*)mapped.pData;
+        size_t n = foodNodes.size();
+        for (size_t i = 0; i < n && i < (size_t)MaxFoodNodes; ++i)
+        {
+            if (counts[i] > 0)
+            {
+                float dec = (float)counts[i];
+                foodNodes[i].amount = max(0.0f, foodNodes[i].amount - dec);
+            }
+        }
+        pDeviceContext->Unmap(foodCountReadback, 0);
+    }
+
+    // Read back nest counts and add to score/stageScore
+    pDeviceContext->CopyResource(nestCountReadback, nestCountBuffer);
+    D3D11_MAPPED_SUBRESOURCE mappedN = {};
+    if (SUCCEEDED(pDeviceContext->Map(nestCountReadback, 0, D3D11_MAP_READ, 0, &mappedN)))
+    {
+        UINT* countsN = (UINT*)mappedN.pData;
+        UINT totalHits = 0;
+        size_t n = foodNodes.size();
+        for (size_t i = 0; i < n && i < (size_t)MaxFoodNodes; ++i) totalHits += countsN[i];
+        if (totalHits > 0)
+        {
+            // Combo handling
+            if (sinceLastDeposit < 0.5) combo = min(5, combo + 1); else combo = 1;
+            sinceLastDeposit = 0.0;
+            int add = (int)totalHits * combo;
+            score += add;
+            stageScore += add;
+        }
+        pDeviceContext->Unmap(nestCountReadback, 0);
+    }
 
 	// Swap,  backbuffer style
 	std::swap(computeBufferA, computeBufferB);
@@ -638,10 +714,10 @@ void InstancedRendererEngine2D::RunComputeShader(ID3D11Buffer* buffer, VertexInp
 	std::swap(unorderedAccessViewA, unorderedAccessViewB);
 
 	// Unset the compute buffers so they can be used elsewhere
-	ID3D11ShaderResourceView* nullSRVs[1] = { nullptr };
-	ID3D11UnorderedAccessView* nullUAVs[1] = { nullptr };
-	pDeviceContext->CSSetShaderResources(0, 1, nullSRVs);
-	pDeviceContext->CSSetUnorderedAccessViews(0, 1, nullUAVs, nullptr);
+    ID3D11ShaderResourceView* nullSRVs[1] = { nullptr };
+    ID3D11UnorderedAccessView* nullUAVs[3] = { nullptr, nullptr, nullptr };
+    pDeviceContext->CSSetShaderResources(0, 1, nullSRVs);
+    pDeviceContext->CSSetUnorderedAccessViews(0, 3, nullUAVs, nullptr);
     pDeviceContext->CSSetShader(nullptr, nullptr, 0);
 }
 
@@ -792,6 +868,35 @@ void InstancedRendererEngine2D::RenderMarkerWithMesh(Mesh* mesh, const Vector2D&
 
 void InstancedRendererEngine2D::RenderUI()
 {
+    // Per-node amounts as overlay (no windows)
+    if (ImGui::GetCurrentContext())
+    {
+        ImDrawList* dl = ImGui::GetForegroundDrawList();
+        float base = defaultFoodAmount > 1e-5f ? defaultFoodAmount : 100.0f;
+        for (size_t i = 0; i < foodNodes.size(); ++i)
+        {
+            const auto& node = foodNodes[i];
+            float ratio = node.amount / base;
+            ratio = max(0.3f, min(ratio, 2.5f));
+            // Compute on-screen rect center matching drawn footprint
+            float sx = (node.pos.x + 1.0f) * 0.5f * (float)screenWidth;
+            float sy = (1.0f - node.pos.y) * 0.5f * (float)screenHeight;
+            float widthPx  = (0.05f * 2.0f * ratio / aspectRatioX) * ((float)screenWidth * 0.5f);
+            float heightPx = (0.05f * 2.0f * ratio)                * ((float)screenHeight * 0.5f);
+            ImVec2 center(sx + widthPx * 0.5f, sy + heightPx * 0.5f);
+
+            wchar_t wbuf[32]; swprintf_s(wbuf, L"%.0f", max(0.0f, node.amount));
+            char buf[32]; wcstombs(buf, wbuf, sizeof(buf));
+            ImVec2 textSize = ImGui::CalcTextSize(buf);
+            ImVec2 pos(center.x - textSize.x * 0.5f, center.y - textSize.y * 0.5f);
+            // Shadow
+            dl->AddText(ImVec2(pos.x + 1, pos.y + 1), IM_COL32(0,0,0,180), buf);
+            // Text (slightly tinted by active state)
+            ImU32 col = (i == (size_t)activeFoodIndex) ? IM_COL32(255, 240, 160, 230) : IM_COL32(255,255,255,220);
+            dl->AddText(pos, col, buf);
+        }
+    }
+
     // HUD window (ImGui)
     ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.6f);
@@ -813,10 +918,11 @@ void InstancedRendererEngine2D::RenderUI()
     // Overlays
     if(gameState == GameState::StageClear)
     {
-        ImGui::SetNextWindowSize(ImVec2(600, 180), ImGuiCond_Appearing);
-        ImGui::SetNextWindowPos(ImVec2(120, 280), ImGuiCond_Appearing);
+        ImVec2 disp = ImGui::GetIO().DisplaySize;
+        ImGui::SetNextWindowSize(ImVec2(600, 180), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(ImVec2(disp.x * 0.5f, disp.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
         ImGui::SetNextWindowBgAlpha(0.7f);
-        if (ImGui::Begin("Stage Clear", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize))
+        if (ImGui::Begin("Stage Clear", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove))
         {
             ImGui::Text("Stage Clear! Choose Upgrade:");
             if (ImGui::Button("Speed +15%", ImVec2(180, 40))) ApplyUpgrade(1);
@@ -829,10 +935,11 @@ void InstancedRendererEngine2D::RenderUI()
     }
     else if(gameState == GameState::GameOver)
     {
-        ImGui::SetNextWindowSize(ImVec2(540, 150), ImGuiCond_Appearing);
-        ImGui::SetNextWindowPos(ImVec2(120, 280), ImGuiCond_Appearing);
+        ImVec2 disp = ImGui::GetIO().DisplaySize;
+        ImGui::SetNextWindowSize(ImVec2(540, 150), ImGuiCond_Always);
+        ImGui::SetNextWindowPos(ImVec2(disp.x * 0.5f, disp.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
         ImGui::SetNextWindowBgAlpha(0.7f);
-        if (ImGui::Begin("Game Over", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize))
+        if (ImGui::Begin("Game Over", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove))
         {
             ImGui::Text("Game Over!");
             if (ImGui::Button("Restart (R)", ImVec2(160, 36))) { ResetGame(); StartStage(1); }
@@ -843,19 +950,59 @@ void InstancedRendererEngine2D::RenderUI()
     }
 }
 
+void InstancedRendererEngine2D::LoadSettings()
+{
+    // Try multiple candidate paths so it works from exe directory or project root
+    const char* candidates[] = {
+        "settings.ini",
+        "../settings.ini",
+        "../../settings.ini"
+    };
+    std::ifstream f;
+    for(const char* path : candidates)
+    {
+        f.open(path);
+        if(f.is_open()) break;
+    }
+    if(f.is_open())
+    {
+        std::string line;
+        auto trim = [](std::string &s){ size_t a=s.find_first_not_of(" \t\r\n"); size_t b=s.find_last_not_of(" \t\r\n"); if(a==std::string::npos){s.clear();} else { s=s.substr(a,b-a+1);} };
+        while(std::getline(f, line))
+        {
+            if(line.empty() || line[0] == '#' || line[0] == ';' || (line.size() > 1 && line[0] == '/' && line[1] == '/')) continue;
+            auto pos = line.find('='); if(pos == std::string::npos) continue;
+            std::string key = line.substr(0,pos); std::string val = line.substr(pos+1);
+            trim(key); trim(val);
+        try{
+            if(key == "initialAnts") { initialAnts = max(0, stoi(val)); }
+            else if(key == "antsPerSecond") antsPerSecond = max(0.0f, stof(val));
+            else if(key == "spawnDelaySec") spawnDelaySec = max(0.0, stod(val));
+            else if(key == "defaultFoodAmount") defaultFoodAmount = max(0.0f, stof(val));
+            else if(key == "minFoodSpacing") minFoodSpacing = max(0.0f, stof(val));
+            else if(key == "initialSpeed") { initialSpeed = max(0.0f, stof(val)); antSpeed = initialSpeed; }
+        } catch(...) {}
+        }
+        f.close();
+    }
+    // Enforce: initial ants and max ants are the same
+    maxAnts = initialAnts;
+}
 void InstancedRendererEngine2D::ResetAnts()
 {
     // Reset all ants to nest and set goals to current active food (or nest if none)
-    Vector2D target = (activeFoodIndex >= 0 && activeFoodIndex < (int)foodNodes.size()) ? foodNodes[activeFoodIndex].pos : nestPos;
-    for (auto &it : instances)
+    double sendInterval = max(0.02, 1.0 / max(0.01, (double)antsPerSecond));
+    for (int i = 0; i < (int)instances.size(); ++i)
     {
+        InstanceData &it = instances[i];
         it.posX = nestPos.x;
         it.posY = nestPos.y;
         it.directionX = 0.0f;
         it.directionY = 0.0f;
-        it.goalX = target.x;
-        it.goalY = target.y;
-        it.movementState = 0; // ToFood
+        it.goalX = nestPos.x;
+        it.goalY = nestPos.y;
+        it.movementState = 1; // ToNest (idle at nest)
+        it.holdTimer = (i < activeAnts) ? (float)(sendInterval * i) : 9999.0f;
     }
     if(pDeviceContext && computeBufferA && computeBufferB && instanceBuffer)
     {
@@ -865,7 +1012,7 @@ void InstancedRendererEngine2D::ResetAnts()
     }
     // Reset timers for leg tracking
     legElapsed = 0.0;
-    travelTime = (antSpeed > 0.0f) ? (std::sqrt((target.x - nestPos.x)*(target.x - nestPos.x) + (target.y - nestPos.y)*(target.y - nestPos.y)) / antSpeed) : 0.0;
+    travelTime = 0.0;
 }
 
 void InstancedRendererEngine2D::RenderPanel(const Vector2D& ndcCenter, float sizeX, float sizeY, int colorCode)
@@ -923,6 +1070,10 @@ void InstancedRendererEngine2D::ApplyUpgrade(int option)
             break;
         case 2: // Spawn rate
             antsPerSecond *= 1.25f;
+            // Re-stagger departures at nest to avoid clumping after rate change
+            pendingSpawns.clear();
+            spawnAccumulator = 0.0;
+            RebuildDepartureStagger();
             break;
         case 3: // Max ants
             maxAnts = min(2048, maxAnts + 128);
@@ -931,6 +1082,27 @@ void InstancedRendererEngine2D::ApplyUpgrade(int option)
             break;
     }
     AdvanceStage();
+}
+
+void InstancedRendererEngine2D::RebuildDepartureStagger()
+{
+    double sendInterval = max(0.02, 1.0 / max(0.01, (double)antsPerSecond));
+    int queued = 0;
+    for (int i = 0; i < activeAnts && i < (int)instances.size(); ++i)
+    {
+        InstanceData &it = instances[i];
+        // Only adjust ants that are at the nest (ToNest) to prevent mid-air changes
+        if (it.movementState == 1)
+        {
+            it.holdTimer = (float)(sendInterval * queued);
+            ++queued;
+        }
+    }
+    if(pDeviceContext && computeBufferA && computeBufferB)
+    {
+        pDeviceContext->UpdateSubresource(computeBufferA, 0, nullptr, instances.data(), 0, 0);
+        pDeviceContext->CopyResource(computeBufferB, computeBufferA);
+    }
 }
 
 void InstancedRendererEngine2D::ToggleEndless(bool enabled)
@@ -1002,11 +1174,52 @@ void InstancedRendererEngine2D::UpdateGame(double dt)
     // Spawn strictly when food is selected (ToFood state)
     if(mode == AntMode::ToFood && activeFoodIndex >= 0)
     {
-        spawnAccumulator += dt * antsPerSecond;
-        while(spawnAccumulator >= 1.0 && activeAnts < maxAnts)
+        int capacity = maxAnts - (activeAnts + (int)pendingSpawns.size());
+        // Only schedule one pending spawn at a time, using spawnDelaySec from settings
+        if (capacity > 0 && pendingSpawns.empty())
         {
+            double interval = max(0.01, spawnDelaySec);
+            pendingSpawns.push_back(interval);
+        }
+    }
+    // Tick pending spawns and activate
+    if(!pendingSpawns.empty())
+    {
+        // Decrease all timers by dt, but only activate one ant per frame
+        for (double &t : pendingSpawns) t -= dt;
+        if(pendingSpawns.front() <= 0.0 && activeAnts < maxAnts)
+        {
+            pendingSpawns.pop_front();
+            // Activate one ant at slot = activeAnts
+            int slot = activeAnts;
             activeAnts++;
-            spawnAccumulator -= 1.0;
+            // Initialize its state near the nest to avoid overlap
+            float ang = RandomGenerator::Generate(0.0f, 6.28318f);
+            float rad = RandomGenerator::Generate(0.005f, 0.025f);
+            float offX = (rad * cosf(ang));
+            float offY = (rad * sinf(ang));
+            InstanceData init = {};
+            init.posX = nestPos.x + offX;
+            init.posY = nestPos.y + offY;
+            init.directionX = 0.0f;
+            init.directionY = 0.0f;
+            init.goalX = nestPos.x;
+            init.goalY = nestPos.y;
+            init.laneOffset = RandomGenerator::Generate(-0.03f, 0.03f);
+            init.speedScale = RandomGenerator::Generate(0.85f, 1.15f);
+            init.color = DirectX::XMFLOAT4(RandomGenerator::Generate(0.1f, 1.0f), RandomGenerator::Generate(0.1f, 1.0f), RandomGenerator::Generate(0.1f, 1.0f), 1.0f);
+            init.movementState = 1; // ToNest (idle at nest)
+            init.sourceIndex = -1;
+            init.holdTimer = (float)max(0.01, spawnDelaySec);
+
+            // Update compute buffers A and B at the slot
+            UINT offsetBytes = slot * sizeof(InstanceData);
+            D3D11_BOX box = {};
+            box.left = offsetBytes;
+            box.right = offsetBytes + sizeof(InstanceData);
+            box.top = 0; box.bottom = 1; box.front = 0; box.back = 1;
+            pDeviceContext->UpdateSubresource(computeBufferA, 0, &box, &init, 0, 0);
+            pDeviceContext->UpdateSubresource(computeBufferB, 0, &box, &init, 0, 0);
         }
     }
 
@@ -1015,75 +1228,11 @@ void InstancedRendererEngine2D::UpdateGame(double dt)
     legElapsed += dt;
     sinceLastDeposit += dt;
 
-    if(mode == AntMode::ToNest)
-    {
-        float depositRate = antSpeed / followDistance; // ants per second
-        float deltaUnits = (float)(depositRate * dt);
-        if(activeFoodIndex >= 0 && activeFoodIndex < (int)foodNodes.size() && deltaUnits > 0.0f)
-        {
-            float& foodRemaining = foodNodes[activeFoodIndex].amount;
-            float actual = min(foodRemaining, deltaUnits);
-            foodRemaining -= actual;
-            scoreCarryAccum += actual;
-            int add = (int)std::floor(scoreCarryAccum);
-            if(add > 0)
-            {
-                // Combo multiplier
-                if(sinceLastDeposit < 0.5) { combo = min(5, combo + 1); }
-                else { combo = 1; }
-                sinceLastDeposit = 0.0;
-                score += add * combo;
-                stageScore += add * combo;
-                scoreCarryAccum -= (float)add;
-            }
-        }
-    }
+    // Scoring handled via nest hit counts in compute shader readback
 
     if(antSpeed <= 0.0f) return;
 
-    if(legElapsed >= travelTime)
-    {
-        legElapsed = 0.0;
-        if(mode == AntMode::ToFood)
-        {
-            mode = AntMode::ToNest;
-            int nx = (int)((nestPos.x + 1.0f) * 0.5f * screenWidth);
-            int ny = (int)((1.0f - nestPos.y) * 0.5f * screenHeight);
-            SetFlockTarget(nx, ny);
-        }
-        else if(mode == AntMode::ToNest)
-        {
-            // If current active is empty, choose next or spawn
-            if(activeFoodIndex >= 0 && activeFoodIndex < (int)foodNodes.size() && foodNodes[activeFoodIndex].amount <= 0.0f)
-            {
-                // pick next non-empty
-                int next = -1;
-                for(size_t i = 0; i < foodNodes.size(); ++i)
-                {
-                    if(foodNodes[i].amount > 0.0f)
-                    {
-                        next = (int)i; break;
-                    }
-                }
-                if(next == -1)
-                {
-                    SpawnRandomFood(1);
-                    next = (int)foodNodes.size() - 1;
-                }
-                SetActiveFoodByIndex(next);
-            }
-            mode = AntMode::ToFood;
-            if(activeFoodIndex >= 0)
-            {
-                Vector2D fp = foodNodes[activeFoodIndex].pos;
-                int fx = (int)((fp.x + 1.0f) * 0.5f * screenWidth);
-                int fy = (int)((1.0f - fp.y) * 0.5f * screenHeight);
-                SetFlockTarget(fx, fy);
-            }
-        }
-        Vector2D target = (activeFoodIndex >= 0 && activeFoodIndex < (int)foodNodes.size()) ? foodNodes[activeFoodIndex].pos : nestPos;
-        travelTime = (antSpeed > 0.0f) ? (std::sqrt((target.x - nestPos.x)*(target.x - nestPos.x) + (target.y - nestPos.y)*(target.y - nestPos.y)) / antSpeed) : 0.0;
-    }
+    // Remove travelTime-based leg switching; compute shader governs transitions
 
     // Stage transitions
     if(stageScore >= stageTarget)
@@ -1129,7 +1278,7 @@ void InstancedRendererEngine2D::StartStage(int number)
     stageTarget = 150 + (stage - 1) * 120;
     stageTimeLeft = 60.0 + (stage - 1) * 10.0;
     antsPerSecond = 20.0f + stage * 10.0f;
-    maxAnts = min(1024, 160 + stage * 110);
+    // Do not auto-increase maxAnts across stages; only upgrades change it
     stageScore = 0;
     combo = 1;
     sinceLastDeposit = 9999.0;
@@ -1144,8 +1293,10 @@ void InstancedRendererEngine2D::StartStage(int number)
     activeFoodIndex = -1;
     mode = AntMode::Idle;
 
-    activeAnts = 0;
+    // Initialize with configured number of ants (idle at nest)
+    activeAnts = min(maxAnts, initialAnts);
     spawnAccumulator = 0.0;
+    pendingSpawns.clear();
 
     // Reset ants fully
     ResetAnts();
@@ -1175,6 +1326,13 @@ void InstancedRendererEngine2D::SpawnRandomFood(int count)
                 float dy = n.pos.y - p.y;
                 if((dx*dx + dy*dy) < (minFoodSpacing*minFoodSpacing)) { ok = false; break; }
             }
+            // Also keep away from nest
+            if(ok)
+            {
+                float dnx = nestPos.x - p.x;
+                float dny = nestPos.y - p.y;
+                if((dnx*dnx + dny*dny) < (minFoodSpacing*minFoodSpacing)) ok = false;
+            }
             if(ok)
             {
                 // Randomize amount per node by stage
@@ -1203,6 +1361,12 @@ void InstancedRendererEngine2D::SpawnFoodAtScreen(int x, int y, float amount)
         float dx = n.pos.x - p.x;
         float dy = n.pos.y - p.y;
         if((dx*dx + dy*dy) < (minFoodSpacing*minFoodSpacing)) return; // too close, skip
+    }
+    // keep away from nest
+    {
+        float dnx = nestPos.x - p.x;
+        float dny = nestPos.y - p.y;
+        if((dnx*dnx + dny*dny) < (minFoodSpacing*minFoodSpacing)) return;
     }
     foodNodes.push_back(FoodNode{p, amount});
 }

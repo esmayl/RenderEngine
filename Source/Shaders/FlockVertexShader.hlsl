@@ -31,8 +31,10 @@ struct InstanceData
     float goalY;
     float laneOffset;
     float speedScale;
+    float holdTimer;
     float4 color;
     int movementState;
+    int sourceIndex;
 };
 
 StructuredBuffer<InstanceData> CurrPos : register(t0); // same as CurrPosIn after swap

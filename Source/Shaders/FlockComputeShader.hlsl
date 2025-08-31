@@ -30,12 +30,16 @@ struct InstanceData
     float goalY;
     float laneOffset;
     float speedScale;
+    float holdTimer;
     float4 color;
     int movementState;
+    int sourceIndex;
 };
 
 StructuredBuffer<InstanceData> CurrPosIn : register(t0);
 RWStructuredBuffer<InstanceData> CurrPosOut : register(u0);
+RWStructuredBuffer<uint> FoodHitCounts : register(u1);
+RWStructuredBuffer<uint> NestHitCounts : register(u2);
 
 // States: 0 = ToFood, 1 = ToNest
 
@@ -46,9 +50,10 @@ void main(uint3 threadId : SV_DispatchThreadID)
 
     float2 pos = float2(CurrPosIn[id].x, CurrPosIn[id].y);
     int state = CurrPosIn[id].movementState;
-    // Default: preserve previous goal
+    // Default: preserve previous goal and hold timer
     CurrPosOut[id].goalX = CurrPosIn[id].goalX;
     CurrPosOut[id].goalY = CurrPosIn[id].goalY;
+    CurrPosOut[id].holdTimer = CurrPosIn[id].holdTimer;
 
     float stopDistance = 0.03f;
 
@@ -100,6 +105,12 @@ void main(uint3 threadId : SV_DispatchThreadID)
             // on switching, set goal to nest
             CurrPosOut[id].goalX = nest.x;
             CurrPosOut[id].goalY = nest.y;
+            // Count hit for this ant's source node
+            int sidx = CurrPosIn[id].sourceIndex;
+            if (sidx >= 0)
+            {
+                InterlockedAdd(FoodHitCounts[sidx], 1);
+            }
         }
     }
     else
@@ -134,20 +145,42 @@ void main(uint3 threadId : SV_DispatchThreadID)
             newPos = pos;
         }
 
-        // Arrived at nest -> go to current global food only if one is active
+        // Arrived at nest -> wait, then depart based on active food
         if(distNest <= stopDistance)
         {
+            // Count nest arrival for scoring
+            int sidxN = CurrPosIn[id].sourceIndex;
+            if (sidxN >= 0)
+            {
+                InterlockedAdd(NestHitCounts[sidxN], 1);
+            }
+            float ht = CurrPosIn[id].holdTimer;
             if (activeFoodIndex < 0)
             {
                 newState = 1;
                 CurrPosOut[id].goalX = nest.x;
                 CurrPosOut[id].goalY = nest.y;
+                CurrPosOut[id].holdTimer = ht; // do not decrement while no target
             }
             else
             {
-                newState = 0;
-                CurrPosOut[id].goalX = food.x;
-                CurrPosOut[id].goalY = food.y;
+                // Decrement hold timer only when a target exists
+                ht = ht - deltaTime;
+                CurrPosOut[id].holdTimer = ht;
+                if (ht > 0.0f)
+                {
+                    newState = 1;
+                    CurrPosOut[id].goalX = nest.x;
+                    CurrPosOut[id].goalY = nest.y;
+                }
+                else
+                {
+                    newState = 0;
+                    CurrPosOut[id].goalX = food.x;
+                    CurrPosOut[id].goalY = food.y;
+                    CurrPosOut[id].sourceIndex = activeFoodIndex;
+                    CurrPosOut[id].holdTimer = 0.0f;
+                }
             }
         }
         else
