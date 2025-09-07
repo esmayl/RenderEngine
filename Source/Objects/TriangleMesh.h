@@ -5,7 +5,7 @@
 
 class TriangleMesh
 {
-public:
-	Mesh* renderingData;
-	explicit TriangleMesh(ID3D11Device& pDevice);
+  public:
+    Mesh* renderingData;
+    explicit TriangleMesh( ID3D11Device& pDevice );
 };

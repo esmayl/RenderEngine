@@ -1,27 +1,27 @@
 #pragma once
 struct VertexInputData
 {
-	float sizeX; // 4 bytes
-	float sizeY; // 4 bytes
-	float objectPosX; // 4 bytes
-	float objectPosY; // 4 bytes
-	
-	float aspectRatio;
-	float time;
-	int indexesX;
-	int indexesY;
-	
-	float speed;
-	int gridX;
-	int gridY;
-	float padding1;
+    float sizeX;      // 4 bytes
+    float sizeY;      // 4 bytes
+    float objectPosX; // 4 bytes
+    float objectPosY; // 4 bytes
 
-	float targetPosX;
-	float targetPosY;
-	float orbitDistance;
-	float jitter;
+    float aspectRatio;
+    float time;
+    int indexesX;
+    int indexesY;
 
-	float previousTargetPosX;
+    float speed;
+    int gridX;
+    int gridY;
+    float padding1;
+
+    float targetPosX;
+    float targetPosY;
+    float orbitDistance;
+    float jitter;
+
+    float previousTargetPosX;
     float previousTargetPosY;
     float flockTransitionTime;
     float deltaTime;

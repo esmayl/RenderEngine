@@ -5,7 +5,7 @@
 
 class SquareMesh
 {
-	public:
-		Mesh* renderingData;
-		explicit SquareMesh(ID3D11Device& pDevice);
+  public:
+    Mesh* renderingData;
+    explicit SquareMesh( ID3D11Device& pDevice );
 };

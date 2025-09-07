@@ -7,7 +7,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # --- Source Files ---
 # Automatically discover all source files in the Source directory
 file(GLOB_RECURSE SOURCE_FILES CONFIGURE_DEPENDS "Source/*.cpp" "Source/*.h")
-add_executable(RenderEngine WIN32 ${SOURCE_FILES})
+add_executable(RenderEngine WIN32 ${SOURCE_FILES}
+        Source/Button.cpp
+        Source/Button.h
+        Source/UIPanelCB.cpp
+        Source/UIPanelCB.h)
 
 # --- Dependencies ---
 # vcpkg will find these packages using the toolchain file configured in CLion
@@ -117,3 +121,15 @@ if (BUILD_TESTING)
     include(GoogleTest)
     gtest_discover_tests(RenderEngineTests)
 endif ()
+
+# --- Format target ---
+file(GLOB_RECURSE FORMAT_FILES CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.h"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.hpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp")
+
+add_custom_target(format
+        COMMAND clang-format -i ${FORMAT_FILES}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Formatting source files with clang-format")

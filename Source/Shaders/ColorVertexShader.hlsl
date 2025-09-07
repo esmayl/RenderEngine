@@ -69,6 +69,10 @@ VS_OUTPUT main(VS_INPUT input)
     {
         output.color = float4(0.08f, 0.10f, 0.12f, 0.6f); // UI panel - translucent dark
     }
+    else if (indexes.x == 6)
+    {
+        output.color = float4(1.0f, 0.8f, 0.2f, 1.0f); // bonus sugar - gold
+    }
     else
     {
         output.color = float4(1.0f, 1.0f, 1.0f, 1.0f); // default white

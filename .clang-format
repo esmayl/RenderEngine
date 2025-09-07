@@ -6,10 +6,10 @@ ColumnLimit: 120
 AccessModifierOffset: -2
 AllowShortBlocksOnASingleLine: Empty
 AllowShortFunctionsOnASingleLine: None
-BreakBeforeBraces: Attach
-SpacesInParentheses: false
+BreakBeforeBraces: Allman
+SpacesInParentheses: true
 SpaceBeforeParens: ControlStatements
-PointerAlignment: Right
+PointerAlignment: Left
 SortIncludes: true
 IncludeBlocks: Regroup
 Cpp11BracedListStyle: true

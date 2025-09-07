@@ -66,6 +66,16 @@ void main(uint3 threadId : SV_DispatchThreadID)
 
     if(state == 0)
     {
+        // If no active food, immediately head back to nest
+        if (activeFoodIndex < 0)
+        {
+            newState = 1;
+            CurrPosOut[id].goalX = nest.x;
+            CurrPosOut[id].goalY = nest.y;
+            // keep position; movement handled by ToNest block rules below on next frame
+        }
+        else
+        {
         // ToFood: move towards personal goal (snapshot when leaving nest)
         float2 goal = float2(CurrPosIn[id].goalX, CurrPosIn[id].goalY);
     float2 toGoal = goal - pos;
@@ -111,6 +121,7 @@ void main(uint3 threadId : SV_DispatchThreadID)
             {
                 InterlockedAdd(FoodHitCounts[sidx], 1);
             }
+        }
         }
     }
     else
