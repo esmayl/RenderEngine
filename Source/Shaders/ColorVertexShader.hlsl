@@ -1,12 +1,13 @@
 cbuffer VertexInputData : register(b0)
 {
     float2 size;          // sizeX, sizeY
-    float2 objectPos;     // objectPosX, objectPosY (NDC)
+    float2 objectPos;     // objectPosX, objectPosY (world)
     float aspectRatio;
     float time;
     int2 indexes;         // indexesX used as color code
     float speed;
     int2 grid;
+    float padding1;
     float2 targetPos;
     float orbitDistance;
     float jitter;
@@ -14,8 +15,11 @@ cbuffer VertexInputData : register(b0)
     float flockTransitionTime;
     float deltaTime;
     int activeFoodIndex;
-    int3 _paddingC;
-    float2 hazardPos;
+    float cameraPosX;
+    float cameraPosY;
+    float cameraZoom;
+    float hazardPosX;
+    float hazardPosY;
     float hazardRadius;
     int hazardActive;
 }
@@ -43,8 +47,9 @@ VS_OUTPUT main(VS_INPUT input)
     p.x *= size.x;
     p.y *= size.y;
 
-    // Offset to NDC object position
-    p += objectPos;
+    // Offset to camera-relative position
+    float2 cameraOffset = float2(cameraPosX, cameraPosY);
+    p += objectPos - cameraOffset;
 
     output.position = float4(p, 0.0f, 1.0f);
 

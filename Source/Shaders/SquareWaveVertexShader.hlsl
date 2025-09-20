@@ -1,12 +1,27 @@
 cbuffer VertexInputData : register(b0)
 {
-	float2 size;
-	float2 objectPos; // objectPosX and objectPosY from C++ map here
-	float aspectRatio;
-	float time;
-	int2 indexes;
-	float speed;
+    float2 size;
+    float2 objectPos;
+    float aspectRatio;
+    float time;
+    int2 indexes;
+    float speed;
     int2 grid;
+    float padding1;
+    float2 targetPos;
+    float orbitDistance;
+    float jitter;
+    float2 previousTargetPos;
+    float flockTransitionTime;
+    float deltaTime;
+    int activeFoodIndex;
+    float cameraPosX;
+    float cameraPosY;
+    float cameraZoom;
+    float hazardPosX;
+    float hazardPosY;
+    float hazardRadius;
+    int hazardActive;
 }
 
 struct VsInput
@@ -44,6 +59,9 @@ VS_OUTPUT main(VsInput input)
     float sinWave = sin(time * speed - ((float)i + j)) * 0.03f;
     input.pos.y += sinWave;
 	
+    float2 cameraOffset = float2(cameraPosX, cameraPosY);
+    input.pos.xy -= cameraOffset;
+
     output.position = float4(input.pos, 1.0f);
 	
     // Subtle teal tint with mild shimmering based on phase

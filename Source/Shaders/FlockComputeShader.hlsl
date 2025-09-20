@@ -7,6 +7,7 @@ cbuffer VertexInputData : register(b0)
     int2 indexes;
     float speed;
     int2 grid;
+    float padding1;
     float2 targetPos;
     float orbitDistance;
     float jitter;
@@ -14,8 +15,11 @@ cbuffer VertexInputData : register(b0)
     float flockTransitionTime;
     float deltaTime;
     int activeFoodIndex;
-    int3 _paddingVc;
-    float2 hazardPos;
+    float cameraPosX;
+    float cameraPosY;
+    float cameraZoom;
+    float hazardPosX;
+    float hazardPosY;
     float hazardRadius;
     int hazardActive;
 }
@@ -59,6 +63,7 @@ void main(uint3 threadId : SV_DispatchThreadID)
 
     float2 food = targetPos;              // current global food target (for newly leaving ants)
     float2 nest = previousTargetPos;      // nest position
+    float2 hazardPos = float2(hazardPosX, hazardPosY);
 
     float2 dir = float2(0.0f, 0.0f);
     float2 newPos = pos;
@@ -76,52 +81,52 @@ void main(uint3 threadId : SV_DispatchThreadID)
         }
         else
         {
-        // ToFood: move towards personal goal (snapshot when leaving nest)
-        float2 goal = float2(CurrPosIn[id].goalX, CurrPosIn[id].goalY);
-    float2 toGoal = goal - pos;
-    float d = length(toGoal);
-    if(d > 1e-5f)
-    {
-        float step = min(d, speed * CurrPosIn[id].speedScale * deltaTime);
-        float2 baseDir = toGoal / d;
-        float2 side = float2(-baseDir.y, baseDir.x);
-        float amp = CurrPosIn[id].laneOffset * saturate(d / 0.2f); // fade near goal
-        float2 steer = normalize(baseDir + side * amp);
-        // Hazard repulsion
-        if(hazardActive != 0)
-        {
-            float2 toHaz = pos - hazardPos;
-            float dh = length(toHaz);
-            if(dh < hazardRadius && dh > 1e-5f)
+            // ToFood: move towards personal goal (snapshot when leaving nest)
+            float2 goal = float2(CurrPosIn[id].goalX, CurrPosIn[id].goalY);
+            float2 toGoal = goal - pos;
+            float d = length(toGoal);
+            if(d > 1e-5f)
             {
-                float2 away = toHaz / dh;
-                float push = saturate(1.0f - dh / hazardRadius);
-                steer = normalize(steer + away * push * 1.5f);
+                float step = min(d, speed * CurrPosIn[id].speedScale * deltaTime);
+                float2 baseDir = toGoal / d;
+                float2 side = float2(-baseDir.y, baseDir.x);
+                float amp = CurrPosIn[id].laneOffset * saturate(d / 0.2f); // fade near goal
+                float2 steer = normalize(baseDir + side * amp);
+                // Hazard repulsion
+                if(hazardActive != 0)
+                {
+                    float2 toHaz = pos - hazardPos;
+                    float dh = length(toHaz);
+                    if(dh < hazardRadius && dh > 1e-5f)
+                    {
+                        float2 away = toHaz / dh;
+                        float push = saturate(1.0f - dh / hazardRadius);
+                        steer = normalize(steer + away * push * 1.5f);
+                    }
+                }
+                dir = steer;
+                newPos = pos + dir * step;
             }
-        }
-        dir = steer;
-        newPos = pos + dir * step;
-    }
-        else
-        {
-            newPos = pos;
-            dir = float2(0.0f, 0.0f);
-        }
+            else
+            {
+                newPos = pos;
+                dir = float2(0.0f, 0.0f);
+            }
 
-        // Arrived at food -> switch to nest
-        if(distance(newPos, goal) <= stopDistance)
-        {
-            newState = 1;
-            // on switching, set goal to nest
-            CurrPosOut[id].goalX = nest.x;
-            CurrPosOut[id].goalY = nest.y;
-            // Count hit for this ant's source node
-            int sidx = CurrPosIn[id].sourceIndex;
-            if (sidx >= 0)
+            // Arrived at food -> switch to nest
+            if(distance(newPos, goal) <= stopDistance)
             {
-                InterlockedAdd(FoodHitCounts[sidx], 1);
+                newState = 1;
+                // on switching, set goal to nest
+                CurrPosOut[id].goalX = nest.x;
+                CurrPosOut[id].goalY = nest.y;
+                // Count hit for this ant's source node
+                int sidx = CurrPosIn[id].sourceIndex;
+                if (sidx >= 0)
+                {
+                    InterlockedAdd(FoodHitCounts[sidx], 1);
+                }
             }
-        }
         }
     }
     else

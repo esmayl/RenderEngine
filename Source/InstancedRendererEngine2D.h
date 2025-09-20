@@ -19,6 +19,7 @@
 #include "imgui.h"
 
 #include <Windows.h>
+#include <Windowsx.h>
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -52,7 +53,7 @@ class InstancedRendererEngine2D : public BaseRenderer
 
     void OnShutdown() override;
 
-    void RenderWavingGrid( int gridWidth, int gridHeight );
+    void RenderWavingGrid( int gridWidth, int gridHeight, bool attachToCamera );
 
     void RenderFlock( int instanceCount );
 
@@ -71,10 +72,58 @@ class InstancedRendererEngine2D : public BaseRenderer
     {
         if ( imgui )
             imgui->ProcessWin32Event( msg, wParam, lParam );
-        // Fun inputs routed here (Konami code)
-        if ( msg == WM_KEYUP )
+
+        const bool wantMouse = ImGui::GetCurrentContext() && ImGui::GetIO().WantCaptureMouse;
+
+        switch ( msg )
         {
+        case WM_KEYUP:
             OnKeyUp( (WPARAM)wParam );
+            break;
+        case WM_LBUTTONUP:
+            if ( partyMode )
+            {
+                int mx = GET_X_LPARAM( lParam );
+                int my = GET_Y_LPARAM( lParam );
+                TriggerConfettiBurst( mx, my, 90 );
+            }
+            break;
+        case WM_RBUTTONDOWN:
+            if ( !wantMouse )
+            {
+                cameraDragging = true;
+                lastMousePos.x = GET_X_LPARAM( lParam );
+                lastMousePos.y = GET_Y_LPARAM( lParam );
+            }
+            break;
+        case WM_RBUTTONUP:
+            cameraDragging = false;
+            break;
+        case WM_MOUSEMOVE:
+            if ( cameraDragging && !wantMouse )
+            {
+                POINT current{ GET_X_LPARAM( lParam ), GET_Y_LPARAM( lParam ) };
+                if ( screenWidth > 0 && screenHeight > 0 )
+                {
+                    float deltaX = ( current.x - lastMousePos.x ) * ( 2.0f / static_cast<float>( screenWidth ) );
+                    float deltaY = ( current.y - lastMousePos.y ) * ( 2.0f / static_cast<float>( screenHeight ) );
+
+                    cameraPosition.x -= deltaX;
+                    cameraPosition.y += deltaY;
+
+                    cameraPosition.x = std::clamp( cameraPosition.x, -8.0f, 8.0f );
+                    cameraPosition.y = std::clamp( cameraPosition.y, -8.0f, 8.0f );
+                }
+                lastMousePos = current;
+            }
+            else
+            {
+                lastMousePos.x = GET_X_LPARAM( lParam );
+                lastMousePos.y = GET_Y_LPARAM( lParam );
+            }
+            break;
+        default:
+            break;
         }
         // Player placement disabled; sugar/hazard spawn randomly now
     }
@@ -177,6 +226,11 @@ class InstancedRendererEngine2D : public BaseRenderer
     UINT screenHeight;
     float aspectRatioX;
 
+    Vector2D cameraPosition{};
+    bool cameraDragging = false;
+    POINT lastMousePos{};
+    float cameraZoom = 1.0f;
+
     std::unique_ptr<SquareMesh> square;
     std::unique_ptr<TriangleMesh> triangle;
 
@@ -190,6 +244,10 @@ class InstancedRendererEngine2D : public BaseRenderer
                            ID3D11ComputeShader* computeShader );
 
     void SetupViewport( UINT width, UINT height );
+
+    Vector2D ScreenToWorld( int x, int y ) const;
+    Vector2D WorldToScreen( const Vector2D& world ) const;
+    Vector2D WorldToView( const Vector2D& world ) const;
 
     void InitRenderBufferAndTargetView( HRESULT& hr );
 

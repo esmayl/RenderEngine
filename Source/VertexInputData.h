@@ -25,10 +25,12 @@ struct VertexInputData
     float previousTargetPosY;
     float flockTransitionTime;
     float deltaTime;
+
     int activeFoodIndex;
-    int paddingA;
-    int paddingB;
-    int paddingC;
+    float cameraPosX;
+    float cameraPosY;
+    float cameraZoom;
+
     // Hazard (UI/gameplay) data
     float hazardPosX;
     float hazardPosY;

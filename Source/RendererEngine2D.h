@@ -18,6 +18,7 @@ class RendererEngine2D : public BaseRenderer
   public:
     RendererEngine2D();
     void Init( HWND windowHandle, int blockWidth, int blockHeight ) override;
+
     void OnPaint( HWND windowHandle ) override;
     void CountFps() override;
     void OnShutdown() override;

@@ -271,6 +271,36 @@ void InstancedRendererEngine2D::SetupViewport( UINT newWidth, UINT newHeight )
     aspectRatioX = ( newHeight > 0 ) ? (FLOAT)newWidth / (FLOAT)newHeight : 1.0f;
 }
 
+Vector2D InstancedRendererEngine2D::ScreenToWorld( int x, int y ) const
+{
+    if ( screenWidth == 0 || screenHeight == 0 )
+        return Vector2D( cameraPosition.x, cameraPosition.y );
+
+    float fx = static_cast<float>( x ) / static_cast<float>( screenWidth );
+    float fy = static_cast<float>( y ) / static_cast<float>( screenHeight );
+
+    float vx = fx * 2.0f - 1.0f;
+    float vy = 1.0f - fy * 2.0f;
+
+    return Vector2D( vx + cameraPosition.x, vy + cameraPosition.y );
+}
+
+Vector2D InstancedRendererEngine2D::WorldToView( const Vector2D& world ) const
+{
+    return Vector2D( world.x - cameraPosition.x, world.y - cameraPosition.y );
+}
+
+Vector2D InstancedRendererEngine2D::WorldToScreen( const Vector2D& world ) const
+{
+    if ( screenWidth == 0 || screenHeight == 0 )
+        return Vector2D( 0.0f, 0.0f );
+
+    Vector2D view = WorldToView( world );
+    float px       = ( view.x + 1.0f ) * 0.5f * static_cast<float>( screenWidth );
+    float py       = ( 1.0f - view.y ) * 0.5f * static_cast<float>( screenHeight );
+    return Vector2D( px, py );
+}
+
 void InstancedRendererEngine2D::InitRenderBufferAndTargetView( HRESULT& hr )
 {
     hr = pSwapChain->GetBuffer( 0, __uuidof( ID3D11Texture2D ),
@@ -337,8 +367,7 @@ void InstancedRendererEngine2D::CountFps()
 void InstancedRendererEngine2D::SetFlockTarget( int x, int y )
 {
     previousFlockTarget = flockTarget;
-    flockTarget.x       = ( x / (float)screenWidth * 2.0f ) - 1.0f;
-    flockTarget.y       = 1.0f - ( y / (float)screenHeight * 2.0f );
+    flockTarget         = ScreenToWorld( x, y );
     flockFrozenTime     = flockTransitionTime;
     flockTransitionTime = 0;
 }
@@ -495,7 +524,7 @@ void InstancedRendererEngine2D::CreateBuffers()
     }
 }
 
-void InstancedRendererEngine2D::RenderWavingGrid( int gridWidth, int gridHeight )
+void InstancedRendererEngine2D::RenderWavingGrid( int gridWidth, int gridHeight, bool attachToCamera )
 {
     UINT stride[] = { sizeof( Vertex ) };
     UINT offset[] = { 0 };
@@ -507,7 +536,7 @@ void InstancedRendererEngine2D::RenderWavingGrid( int gridWidth, int gridHeight 
 
     float factorX = startRenderPosX * 40.0f; // 40.0 is the factor based on the vertex pos 0.05f
     float factorY = startRenderPosY * 40.0f;
-    VertexInputData cbData;
+    VertexInputData cbData{};
 
     cbData.aspectRatio = aspectRatioX;
     cbData.sizeX = factorX * aspectRatioX; // -1 to 1 == 2 , 2 / by single element distance from 0 == total size over
@@ -519,6 +548,11 @@ void InstancedRendererEngine2D::RenderWavingGrid( int gridWidth, int gridHeight 
 
     cbData.gridX = gridWidth;
     cbData.gridY = gridHeight;
+    const float camX = attachToCamera ? 0.0f : cameraPosition.x;
+    const float camY = attachToCamera ? 0.0f : cameraPosition.y;
+    cbData.cameraPosX = camX;
+    cbData.cameraPosY = camY;
+    cbData.cameraZoom = attachToCamera ? 1.0f : cameraZoom;
 
     PassInputDataAndRunInstanced( pConstantBuffer.Get(), cbData, *square->renderingData, gridWidth * gridHeight );
 }
@@ -531,7 +565,7 @@ void InstancedRendererEngine2D::RenderFlock( int instanceCount )
     ID3D11Buffer* buffers[]                     = { square->renderingData->vertexBuffer, instanceBuffer.Get() };
     ID3D11ShaderResourceView* shaderResources[] = { shaderResourceViewA.Get() };
 
-    VertexInputData cbData;
+    VertexInputData cbData{};
 
     cbData.aspectRatio = aspectRatioX;
     cbData.time        = (float)totalTime;
@@ -552,6 +586,13 @@ void InstancedRendererEngine2D::RenderFlock( int instanceCount )
     flockTransitionTime += deltaTime;
     cbData.flockTransitionTime = (float)flockTransitionTime;
     cbData.deltaTime           = (float)deltaTime;
+    cbData.cameraPosX          = cameraPosition.x;
+    cbData.cameraPosY          = cameraPosition.y;
+    cbData.cameraZoom          = cameraZoom;
+    cbData.hazardPosX          = hazard.pos.x;
+    cbData.hazardPosY          = hazard.pos.y;
+    cbData.hazardRadius        = hazard.radius;
+    cbData.hazardActive        = hazard.active ? 1 : 0;
 
     RunComputeShader( flockConstantBuffer.Get(), cbData, instanceCount, flockComputeShader.Get() );
 
@@ -796,6 +837,9 @@ void InstancedRendererEngine2D::RenderMarker( const Vector2D& ndcPos, float size
     cbData.objectPosX      = ndcPos.x;
     cbData.objectPosY      = ndcPos.y;
     cbData.indexesX        = colorCode; // used by shader to pick color
+    cbData.cameraPosX      = cameraPosition.x;
+    cbData.cameraPosY      = cameraPosition.y;
+    cbData.cameraZoom      = cameraZoom;
 
     pDeviceContext->UpdateSubresource( pConstantBuffer.Get(), 0, nullptr, &cbData, 0, 0 );
     {
@@ -869,6 +913,9 @@ void InstancedRendererEngine2D::RenderRectTL( const Vector2D& ndcTopLeft, float 
     cbData.objectPosY      = ndcTopLeft.y;
     cbData.indexesX        = colorCode;
     cbData.indexesY        = lightenLevel;
+    cbData.cameraPosX      = cameraPosition.x;
+    cbData.cameraPosY      = cameraPosition.y;
+    cbData.cameraZoom      = cameraZoom;
 
     pDeviceContext->UpdateSubresource( pConstantBuffer.Get(), 0, nullptr, &cbData, 0, 0 );
     {
@@ -898,6 +945,9 @@ void InstancedRendererEngine2D::RenderMarkerWithMesh( Mesh* mesh, const Vector2D
     cbData.objectPosY      = ndcTopLeft.y;
     cbData.indexesX        = colorCode;
     cbData.indexesY        = lightenLevel;
+    cbData.cameraPosX      = cameraPosition.x;
+    cbData.cameraPosY      = cameraPosition.y;
+    cbData.cameraZoom      = cameraZoom;
 
     pDeviceContext->UpdateSubresource( pConstantBuffer.Get(), 0, nullptr, &cbData, 0, 0 );
     {
@@ -920,10 +970,11 @@ void InstancedRendererEngine2D::RenderUI()
             float ratio      = node.amount / base;
             ratio            = max( 0.3f, min( ratio, 2.5f ) );
             // Compute on-screen rect center matching drawn footprint
-            float sx       = ( node.pos.x + 1.0f ) * 0.5f * (float)screenWidth;
-            float sy       = ( 1.0f - node.pos.y ) * 0.5f * (float)screenHeight;
-            float widthPx  = ( 0.05f * 2.0f * ratio / aspectRatioX ) * ( (float)screenWidth * 0.5f );
-            float heightPx = ( 0.05f * 2.0f * ratio ) * ( (float)screenHeight * 0.5f );
+            Vector2D screen = WorldToScreen( node.pos );
+            float sx        = screen.x;
+            float sy        = screen.y;
+            float widthPx   = ( 0.05f * 2.0f * ratio / aspectRatioX ) * ( (float)screenWidth * 0.5f );
+            float heightPx  = ( 0.05f * 2.0f * ratio ) * ( (float)screenHeight * 0.5f );
             ImVec2 center( sx + widthPx * 0.5f, sy + heightPx * 0.5f );
 
             wchar_t wbuf[32];
@@ -978,7 +1029,7 @@ void InstancedRendererEngine2D::RenderRainOverlay()
     // Full-field translucent wave overlay. UI is drawn after this, so it remains unaffected.
     const int gridX = 160;
     const int gridY = 90;
-    RenderWavingGrid( gridX, gridY );
+    RenderWavingGrid( gridX, gridY, true );
 }
 
 void InstancedRendererEngine2D::LoadSettings()
@@ -1096,6 +1147,9 @@ void InstancedRendererEngine2D::RenderPanel( const Vector2D& ndcCenter, float si
     cbData.objectPosX      = ndcCenter.x;
     cbData.objectPosY      = ndcCenter.y;
     cbData.indexesX        = colorCode;
+    cbData.cameraPosX      = cameraPosition.x;
+    cbData.cameraPosY      = cameraPosition.y;
+    cbData.cameraZoom      = cameraZoom;
 
     pDeviceContext->UpdateSubresource( pConstantBuffer.Get(), 0, nullptr, &cbData, 0, 0 );
 
@@ -1201,8 +1255,7 @@ void InstancedRendererEngine2D::SetFood( int x, int y, float amount )
 
 void InstancedRendererEngine2D::SetNest( int x, int y )
 {
-    nestPos.x = ( x / (float)screenWidth * 2.0f ) - 1.0f;
-    nestPos.y = 1.0f - ( y / (float)screenHeight * 2.0f );
+    nestPos = ScreenToWorld( x, y );
     Vector2D target =
         ( activeFoodIndex >= 0 && activeFoodIndex < (int)foodNodes.size() ) ? foodNodes[activeFoodIndex].pos : nestPos;
     travelTime = ( antSpeed > 0.0f ) ? ( std::sqrt( ( target.x - nestPos.x ) * ( target.x - nestPos.x ) +
@@ -1467,9 +1520,7 @@ void InstancedRendererEngine2D::SpawnRandomFood( int count )
 
 void InstancedRendererEngine2D::SpawnFoodAtScreen( int x, int y, float amount )
 {
-    Vector2D p;
-    p.x = ( x / (float)screenWidth * 2.0f ) - 1.0f;
-    p.y = 1.0f - ( y / (float)screenHeight * 2.0f );
+    Vector2D p = ScreenToWorld( x, y );
     // keep non-overlap
     for ( const auto& n : foodNodes )
     {
@@ -1501,8 +1552,9 @@ int InstancedRendererEngine2D::FindNearestFoodScreen( int x, int y, float maxPix
     for ( size_t i = 0; i < foodNodes.size(); ++i )
     {
         const auto& node = foodNodes[i];
-        float sx         = ( node.pos.x + 1.0f ) * 0.5f * (float)screenWidth;
-        float sy         = ( 1.0f - node.pos.y ) * 0.5f * (float)screenHeight;
+        Vector2D screen = WorldToScreen( node.pos );
+        float sx         = screen.x;
+        float sy         = screen.y;
         float ratio      = node.amount / base;
         ratio            = max( 0.3f, min( ratio, 2.5f ) );
         // width/height in pixels match shader math: base quad 0.05, size=2*ratio, aspect divides X
@@ -1541,9 +1593,8 @@ void InstancedRendererEngine2D::SetActiveFoodByIndex( int index )
                                                          ( target.y - nestPos.y ) * ( target.y - nestPos.y ) ) /
                                          antSpeed )
                                           : 0.0;
-    int fx          = (int)( ( target.x + 1.0f ) * 0.5f * screenWidth );
-    int fy          = (int)( ( 1.0f - target.y ) * 0.5f * screenHeight );
-    SetFlockTarget( fx, fy );
+    Vector2D screen = WorldToScreen( target );
+    SetFlockTarget( static_cast<int>( screen.x ), static_cast<int>( screen.y ) );
 }
 void InstancedRendererEngine2D::RenderFoodMarkers()
 {
@@ -1576,8 +1627,9 @@ void InstancedRendererEngine2D::RenderFoodLabels()
     float size     = ImGui::GetFontSize() * 1.2f;
     for ( const auto& node : foodNodes )
     {
-        int sx = (int)( ( node.pos.x + 1.0f ) * 0.5f * (float)screenWidth );
-        int sy = (int)( ( 1.0f - node.pos.y ) * 0.5f * (float)screenHeight );
+        Vector2D screen = WorldToScreen( node.pos );
+        int sx          = static_cast<int>( screen.x );
+        int sy          = static_cast<int>( screen.y );
         wchar_t wbuf[64];
         swprintf_s( wbuf, L"%.0f", max( 0.0f, node.amount ) );
         char buf[64];
@@ -1967,9 +2019,7 @@ void InstancedRendererEngine2D::RenderPheromonePath()
 
 void InstancedRendererEngine2D::SpawnBonusSugarAtScreen( int x, int y, float amount, float mult, float decay )
 {
-    Vector2D p;
-    p.x = ( x / (float)screenWidth * 2.0f ) - 1.0f;
-    p.y = 1.0f - ( y / (float)screenHeight * 2.0f );
+    Vector2D p = ScreenToWorld( x, y );
     // non-overlap and away from nest
     for ( const auto& n : foodNodes )
     {

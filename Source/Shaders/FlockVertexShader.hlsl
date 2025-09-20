@@ -7,6 +7,7 @@ cbuffer VertexInputData : register(b0)
     int2 indexes;
     float speed;
     int2 grid;
+    float padding1;
     float2 targetPos;
     float orbitDistance;
     float jitter;
@@ -14,8 +15,11 @@ cbuffer VertexInputData : register(b0)
     float flockTransitionTime;
     float deltaTime;
     int activeFoodIndex;
-    int3 _paddingV;
-    float2 hazardPos;
+    float cameraPosX;
+    float cameraPosY;
+    float cameraZoom;
+    float hazardPosX;
+    float hazardPosY;
     float hazardRadius;
     int hazardActive;
 }
@@ -58,7 +62,8 @@ VS_OUTPUT main(VsInput input)
     VS_OUTPUT output;
     
     float2 quad = float2(input.pos.x / aspectRatio, input.pos.y);
-    float2 finalPos = quad + float2(CurrPos[input.instanceId].x, CurrPos[input.instanceId].y);
+    float2 cameraOffset = float2(cameraPosX, cameraPosY);
+    float2 finalPos     = quad + float2(CurrPos[input.instanceId].x, CurrPos[input.instanceId].y) - cameraOffset;
     
     output.position = float4(finalPos, 0.0f, 1.0f);
     
