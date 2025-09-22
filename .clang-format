@@ -16,3 +16,4 @@ Cpp11BracedListStyle: true
 AlignConsecutiveAssignments: Consecutive
 AlignConsecutiveDeclarations: None
 NamespaceIndentation: All
+BreakFunctionDefinitionParameters: false

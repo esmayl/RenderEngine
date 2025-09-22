@@ -1,11 +1,6 @@
 #include "InstancedRendererEngine2D.h"
 
-#include "Button.h"
-#include "UIPanelCB.h"
 
-#include <cmath>
-#include <cstdio>
-#include <string>
 
 // Lightweight UI helpers for consistent overlays
 static inline void DrawRoundedBackground( ImDrawList* dl, const ImVec2& p1, const ImVec2& p2, ImU32 bg, ImU32 border,
@@ -296,8 +291,8 @@ Vector2D InstancedRendererEngine2D::WorldToScreen( const Vector2D& world ) const
         return Vector2D( 0.0f, 0.0f );
 
     Vector2D view = WorldToView( world );
-    float px       = ( view.x + 1.0f ) * 0.5f * static_cast<float>( screenWidth );
-    float py       = ( 1.0f - view.y ) * 0.5f * static_cast<float>( screenHeight );
+    float px      = ( view.x + 1.0f ) * 0.5f * static_cast<float>( screenWidth );
+    float py      = ( 1.0f - view.y ) * 0.5f * static_cast<float>( screenHeight );
     return Vector2D( px, py );
 }
 
@@ -529,7 +524,8 @@ void InstancedRendererEngine2D::RenderWavingGrid( int gridWidth, int gridHeight,
     UINT stride[] = { sizeof( Vertex ) };
     UINT offset[] = { 0 };
 
-    SetupVerticesAndShaders( *stride, *offset, 1, square->renderingData, waveVertexShader.Get(), plainPixelShader.Get() );
+    SetupVerticesAndShaders( *stride, *offset, 1, square->renderingData, waveVertexShader.Get(),
+                             plainPixelShader.Get() );
 
     float startRenderPosX = 2.0f / gridWidth;
     float startRenderPosY = 2.0f / gridHeight;
@@ -546,10 +542,10 @@ void InstancedRendererEngine2D::RenderWavingGrid( int gridWidth, int gridHeight,
     cbData.time  = (float)totalTime;
     cbData.speed = 4.0f;
 
-    cbData.gridX = gridWidth;
-    cbData.gridY = gridHeight;
-    const float camX = attachToCamera ? 0.0f : cameraPosition.x;
-    const float camY = attachToCamera ? 0.0f : cameraPosition.y;
+    cbData.gridX      = gridWidth;
+    cbData.gridY      = gridHeight;
+    const float camX  = attachToCamera ? 0.0f : cameraPosition.x;
+    const float camY  = attachToCamera ? 0.0f : cameraPosition.y;
     cbData.cameraPosX = camX;
     cbData.cameraPosY = camY;
     cbData.cameraZoom = attachToCamera ? 1.0f : cameraZoom;
@@ -665,12 +661,14 @@ void InstancedRendererEngine2D::LoadShaders()
     // Input layout for colored quads (POSITION, TEXCOORD, optional instance stream slot 1 if needed)
     D3D11_INPUT_ELEMENT_DESC layout[] = {
         D3D11_INPUT_ELEMENT_DESC{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        D3D11_INPUT_ELEMENT_DESC{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+        D3D11_INPUT_ELEMENT_DESC{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT,
+                                  D3D11_INPUT_PER_VERTEX_DATA, 0 },
         // No per-instance data for color VS, but keep slot reserved if needed later
     };
 
     // Create the color input layout using the Color VS signature
-    hr = pDevice->CreateInputLayout( layout, ARRAYSIZE( layout ), colorVsBlob->GetBufferPointer(), colorVsBlob->GetBufferSize(), &pInputLayout );
+    hr = pDevice->CreateInputLayout( layout, ARRAYSIZE( layout ), colorVsBlob->GetBufferPointer(),
+                                     colorVsBlob->GetBufferSize(), &pInputLayout );
     if ( FAILED( hr ) )
     {
         SafeRelease( &colorVsBlob );
@@ -682,8 +680,7 @@ void InstancedRendererEngine2D::LoadShaders()
     D3D11_INPUT_ELEMENT_DESC flockLayout[] = {
         // Data from the Vertex Buffer (Slot 0)
         { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
-        { "INSTANCEPOS", 0, DXGI_FORMAT_R32G32_FLOAT, 1, 0, D3D11_INPUT_PER_INSTANCE_DATA, 1 }
-    };
+        { "INSTANCEPOS", 0, DXGI_FORMAT_R32G32_FLOAT, 1, 0, D3D11_INPUT_PER_INSTANCE_DATA, 1 } };
 
     hr = pDevice->CreateInputLayout( flockLayout, ARRAYSIZE( flockLayout ), flockVsBlob->GetBufferPointer(),
                                      flockVsBlob->GetBufferSize(),
@@ -1032,6 +1029,45 @@ void InstancedRendererEngine2D::RenderRainOverlay()
     RenderWavingGrid( gridX, gridY, true );
 }
 
+void InstancedRendererEngine2D::OnKeyUp( WPARAM vk )
+{
+
+    // Konami Code: Up,Up,Down,Down,Left,Right,Left,Right,B,A
+    static const WPARAM seq[] = { VK_UP, VK_UP, VK_DOWN, VK_DOWN, VK_LEFT, VK_RIGHT, VK_LEFT, VK_RIGHT, 'B', 'A' };
+    const int seqLen          = (int)( sizeof( seq ) / sizeof( seq[0] ) );
+    if ( vk == seq[konamiIndex] )
+    {
+        konamiIndex++;
+        if ( konamiIndex >= seqLen )
+        {
+            konamiIndex = 0;
+            partyMode   = !partyMode;
+            TriggerConfettiBurst( (int)( screenWidth * 0.5f ), (int)( screenHeight * 0.5f ), 160 );
+        }
+    }
+    else
+    {
+        konamiIndex = ( vk == seq[0] ) ? 1 : 0;
+    }
+
+    // Frenzy hotkey
+    if ( vk == 'F' )
+    {
+        if ( !frenzyActive && frenzySinceLast >= frenzyCooldown )
+        {
+            frenzyActive    = true;
+            frenzyTimeLeft  = 4.0; // seconds
+            frenzySinceLast = 0.0;
+        }
+    }
+
+    // Toggle debug HUD window
+    if ( vk == VK_F1 || vk == 'H' )
+    {
+        showDebugHud = !showDebugHud;
+    }
+}
+
 void InstancedRendererEngine2D::LoadSettings()
 {
     // Try multiple candidate paths so it works from exe directory or project root
@@ -1100,6 +1136,7 @@ void InstancedRendererEngine2D::LoadSettings()
     // Enforce: initial ants and max ants are the same
     maxAnts = initialAnts;
 }
+
 void InstancedRendererEngine2D::ResetAnts()
 {
     // Reset all ants to nest and set goals to current active food (or nest if none)
@@ -1127,6 +1164,67 @@ void InstancedRendererEngine2D::ResetAnts()
     // Reset timers for leg tracking
     legElapsed = 0.0;
     travelTime = 0.0;
+}
+
+void InstancedRendererEngine2D::ProcessEvent( UINT msg, WPARAM wParam, LPARAM lParam )
+{
+
+    if ( imgui )
+        imgui->ProcessWin32Event( msg, wParam, lParam );
+
+    const bool wantMouse = ImGui::GetCurrentContext() && ImGui::GetIO().WantCaptureMouse;
+
+    switch ( msg )
+    {
+    case WM_KEYUP:
+        OnKeyUp( (WPARAM)wParam );
+        break;
+    case WM_LBUTTONUP:
+        if ( partyMode )
+        {
+            int mx = GET_X_LPARAM( lParam );
+            int my = GET_Y_LPARAM( lParam );
+            TriggerConfettiBurst( mx, my, 90 );
+        }
+        break;
+    case WM_RBUTTONDOWN:
+        if ( !wantMouse )
+        {
+            cameraDragging = true;
+            lastMousePos.x = GET_X_LPARAM( lParam );
+            lastMousePos.y = GET_Y_LPARAM( lParam );
+        }
+        break;
+    case WM_RBUTTONUP:
+        cameraDragging = false;
+        break;
+    case WM_MOUSEMOVE:
+        if ( cameraDragging && !wantMouse )
+        {
+            POINT current{ GET_X_LPARAM( lParam ), GET_Y_LPARAM( lParam ) };
+            if ( screenWidth > 0 && screenHeight > 0 )
+            {
+                float deltaX = ( current.x - lastMousePos.x ) * ( 2.0f / static_cast<float>( screenWidth ) );
+                float deltaY = ( current.y - lastMousePos.y ) * ( 2.0f / static_cast<float>( screenHeight ) );
+
+                cameraPosition.x -= deltaX;
+                cameraPosition.y += deltaY;
+
+                cameraPosition.x = std::clamp( cameraPosition.x, -8.0f, 8.0f );
+                cameraPosition.y = std::clamp( cameraPosition.y, -8.0f, 8.0f );
+            }
+            lastMousePos = current;
+        }
+        else
+        {
+            lastMousePos.x = GET_X_LPARAM( lParam );
+            lastMousePos.y = GET_Y_LPARAM( lParam );
+        }
+        break;
+    default:
+        break;
+    }
+    // Player placement disabled; sugar/hazard spawn randomly now
 }
 
 void InstancedRendererEngine2D::RenderPanel( const Vector2D& ndcCenter, float sizeX, float sizeY, int colorCode )
@@ -1552,7 +1650,7 @@ int InstancedRendererEngine2D::FindNearestFoodScreen( int x, int y, float maxPix
     for ( size_t i = 0; i < foodNodes.size(); ++i )
     {
         const auto& node = foodNodes[i];
-        Vector2D screen = WorldToScreen( node.pos );
+        Vector2D screen  = WorldToScreen( node.pos );
         float sx         = screen.x;
         float sy         = screen.y;
         float ratio      = node.amount / base;

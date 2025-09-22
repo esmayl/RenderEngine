@@ -11,7 +11,8 @@ add_executable(RenderEngine WIN32 ${SOURCE_FILES}
         Source/Button.cpp
         Source/Button.h
         Source/UIPanelCB.cpp
-        Source/UIPanelCB.h)
+        Source/UIPanelCB.h
+        Source/Objects/PartyParticle.h)
 
 # --- Dependencies ---
 # vcpkg will find these packages using the toolchain file configured in CLion

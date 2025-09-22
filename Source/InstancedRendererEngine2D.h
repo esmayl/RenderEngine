@@ -1,25 +1,10 @@
 #pragma once
 
-#include "BaseRenderer.h"
-#include "Block2D.h"
-#include "FoodNode.h"
-#include "GameEnums.h"
-#include "Hazard.h"
-#include "ImGuiRenderer.h"
-#include "InstanceData.h"
-#include "Objects/SquareMesh.h"
-#include "Objects/TriangleMesh.h"
-#include "Rendering/DrawHelpers.h"
-#include "Rendering/QuadRenderer2D.h"
-#include "Rendering/RenderStates.h"
-#include "Utilities.h"
-#include "Vector2D.h"
-#include "Vertex.h"
-#include "VertexInputData.h"
-#include "imgui.h"
-
 #include <Windows.h>
-#include <Windowsx.h>
+#include <Windowsx.h> // Required for GET_X_LPARAM and GET_Y_LPARAM
+#include <cmath>
+#include <cstdio>
+#include <string>
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -32,6 +17,27 @@
 #include <memory>
 #include <vector>
 #include <wrl/client.h>
+#include "imgui.h"
+
+#include "Button.h"
+#include "UIPanelCB.h"
+#include "BaseRenderer.h"
+#include "Block2D.h"
+#include "FoodNode.h"
+#include "GameEnums.h"
+#include "Hazard.h"
+#include "ImGuiRenderer.h"
+#include "InstanceData.h"
+#include "Objects/SquareMesh.h"
+#include "Objects/TriangleMesh.h"
+#include "Objects/PartyParticle.h"
+#include "Rendering/DrawHelpers.h"
+#include "Rendering/QuadRenderer2D.h"
+#include "Rendering/RenderStates.h"
+#include "Utilities.h"
+#include "Vector2D.h"
+#include "Vertex.h"
+#include "VertexInputData.h"
 
 // (Plain ImGui optional) No backends used
 
@@ -68,65 +74,7 @@ class InstancedRendererEngine2D : public BaseRenderer
 
     void ResetAnts();
 
-    void ProcessEvent( UINT msg, WPARAM wParam, LPARAM lParam )
-    {
-        if ( imgui )
-            imgui->ProcessWin32Event( msg, wParam, lParam );
-
-        const bool wantMouse = ImGui::GetCurrentContext() && ImGui::GetIO().WantCaptureMouse;
-
-        switch ( msg )
-        {
-        case WM_KEYUP:
-            OnKeyUp( (WPARAM)wParam );
-            break;
-        case WM_LBUTTONUP:
-            if ( partyMode )
-            {
-                int mx = GET_X_LPARAM( lParam );
-                int my = GET_Y_LPARAM( lParam );
-                TriggerConfettiBurst( mx, my, 90 );
-            }
-            break;
-        case WM_RBUTTONDOWN:
-            if ( !wantMouse )
-            {
-                cameraDragging = true;
-                lastMousePos.x = GET_X_LPARAM( lParam );
-                lastMousePos.y = GET_Y_LPARAM( lParam );
-            }
-            break;
-        case WM_RBUTTONUP:
-            cameraDragging = false;
-            break;
-        case WM_MOUSEMOVE:
-            if ( cameraDragging && !wantMouse )
-            {
-                POINT current{ GET_X_LPARAM( lParam ), GET_Y_LPARAM( lParam ) };
-                if ( screenWidth > 0 && screenHeight > 0 )
-                {
-                    float deltaX = ( current.x - lastMousePos.x ) * ( 2.0f / static_cast<float>( screenWidth ) );
-                    float deltaY = ( current.y - lastMousePos.y ) * ( 2.0f / static_cast<float>( screenHeight ) );
-
-                    cameraPosition.x -= deltaX;
-                    cameraPosition.y += deltaY;
-
-                    cameraPosition.x = std::clamp( cameraPosition.x, -8.0f, 8.0f );
-                    cameraPosition.y = std::clamp( cameraPosition.y, -8.0f, 8.0f );
-                }
-                lastMousePos = current;
-            }
-            else
-            {
-                lastMousePos.x = GET_X_LPARAM( lParam );
-                lastMousePos.y = GET_Y_LPARAM( lParam );
-            }
-            break;
-        default:
-            break;
-        }
-        // Player placement disabled; sugar/hazard spawn randomly now
-    }
+    void ProcessEvent( UINT msg, WPARAM wParam, LPARAM lParam );
 
     void RenderFoodMarkers();
 
@@ -271,42 +219,7 @@ class InstancedRendererEngine2D : public BaseRenderer
     void RenderRainOverlay();
 
     // Fun elements
-    inline void OnKeyUp( WPARAM vk )
-    {
-        // Konami Code: Up,Up,Down,Down,Left,Right,Left,Right,B,A
-        static const WPARAM seq[] = { VK_UP, VK_UP, VK_DOWN, VK_DOWN, VK_LEFT, VK_RIGHT, VK_LEFT, VK_RIGHT, 'B', 'A' };
-        const int seqLen          = (int)( sizeof( seq ) / sizeof( seq[0] ) );
-        if ( vk == seq[konamiIndex] )
-        {
-            konamiIndex++;
-            if ( konamiIndex >= seqLen )
-            {
-                konamiIndex = 0;
-                partyMode   = !partyMode;
-                TriggerConfettiBurst( (int)( screenWidth * 0.5f ), (int)( screenHeight * 0.5f ), 160 );
-            }
-        }
-        else
-        {
-            konamiIndex = ( vk == seq[0] ) ? 1 : 0;
-        }
-
-        // Frenzy hotkey
-        if ( vk == 'F' )
-        {
-            if ( !frenzyActive && frenzySinceLast >= frenzyCooldown )
-            {
-                frenzyActive   = true;
-                frenzyTimeLeft = 4.0; // seconds
-            }
-        }
-
-        // Toggle debug HUD window
-        if ( vk == VK_F1 || vk == 'H' )
-        {
-            showDebugHud = !showDebugHud;
-        }
-    }
+    void OnKeyUp( WPARAM vk );
     void UpdateParty( double dt );
     void RenderPartyOverlay();
     void TriggerConfettiBurst( int x, int y, int count );
@@ -378,19 +291,7 @@ class InstancedRendererEngine2D : public BaseRenderer
     // ImGui wrapper
     std::unique_ptr<ImGuiRenderer> imgui;
 
-    // --- Fun elements state ---
-    struct PartyParticle
-    {
-        float x, y;     // pixels
-        float vx, vy;   // pixels/sec
-        float life;     // remaining seconds
-        float ttl;      // total lifetime seconds
-        uint32_t color; // IM_COL32 RGBA
-        int shape;      // 0: rect, 1: tri, 2: circle
-        float size;     // pixels
-        float rot;      // radians
-        float rotVel;   // radians/sec
-    };
+
     std::vector<PartyParticle> partyParticles;
     bool partyMode           = false;
     bool stageClearBurstDone = false;
@@ -400,7 +301,7 @@ class InstancedRendererEngine2D : public BaseRenderer
     bool frenzyActive      = false;
     double frenzyTimeLeft  = 0.0;
     double frenzyCooldown  = 12.0;
-    double frenzySinceLast = 0.0;
+    double frenzySinceLast = frenzyCooldown;
     // Debug staging toggles
     bool antsEnabled  = true;  // start staged: enable after markers are validated
     bool showDebugHud = false; // closable debug HUD window (F1/H)
