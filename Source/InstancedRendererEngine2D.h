@@ -1,35 +1,23 @@
 #pragma once
 
 #include "BaseRenderer.h"
-#include "Button.h"
-#include "FoodNode.h"
-#include "GameEnums.h"
-#include "Hazard.h"
 #include "ImGuiRenderer.h"
 #include "InstanceData.h"
-#include "Objects/PartyParticle.h"
 #include "Objects/SquareMesh.h"
 #include "Objects/TriangleMesh.h"
-#include "Utilities.h"
 #include "Vector2D.h"
-#include "Vertex.h"
 #include "VertexInputData.h"
-#include "imgui.h"
+#include "Utilities.h"
+#include "Button.h"
 
 #include <Windows.h>
-#include <Windowsx.h> // Required for GET_X_LPARAM and GET_Y_LPARAM
 #include <algorithm>
+#include <Windowsx.h> // Required for GET_X_LPARAM and GET_Y_LPARAM
 #include <array>
 #include <chrono>
-#include <cmath>
-#include <cstdint>
-#include <cstdio>
 #include <d3d11.h>
-#include <d3dcompiler.h> // Needed for compiling shaders
-#include <deque>
 #include <dxgi.h>
 #include <memory>
-#include <string>
 #include <vector>
 #include <wrl/client.h>
 
