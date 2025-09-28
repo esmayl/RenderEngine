@@ -5,8 +5,8 @@
 #include <stdexcept>
 
 // Lightweight UI helpers for consistent overlays
-static inline void DrawRoundedBackground( ImDrawList* dl, const ImVec2& p1, const ImVec2& p2, ImU32 bg, ImU32 border,
-                                          float radius )
+static inline void DrawRoundedBackground( ImDrawList* dl, const ImVec2& p1, const ImVec2& p2, const ImU32 bg, const ImU32 border,
+                                          const float radius )
 {
     // Subtle drop shadow
     dl->AddRectFilled( ImVec2( p1.x + 2, p1.y + 2 ), ImVec2( p2.x + 2, p2.y + 2 ), IM_COL32( 0, 0, 0, 110 ), radius );
@@ -31,7 +31,7 @@ void InstancedRendererEngine2D::SetGame( Game::AntGame* game )
     game_ = game;
 }
 
-void InstancedRendererEngine2D::Init( HWND windowHandle, int blockWidth, int blockHeight )
+void InstancedRendererEngine2D::Init(const HWND windowHandle, int blockWidth, int blockHeight )
 {
     if ( !game_ )
     {
@@ -116,7 +116,7 @@ void InstancedRendererEngine2D::Init( HWND windowHandle, int blockWidth, int blo
     CreateMeshes();
 }
 
-void InstancedRendererEngine2D::OnPaint( HWND windowHandle )
+void InstancedRendererEngine2D::OnPaint(const HWND windowHandle )
 {
     CountFps();
 
@@ -160,27 +160,28 @@ void InstancedRendererEngine2D::OnPaint( HWND windowHandle )
     // Present the back buffer to the screen.
     // The first parameter (1) enables V-Sync, locking the frame rate to the monitor's refresh rate.
     // Change to 0 to disable V-Sync.
-    pSwapChain->Present( 1, 0 );
+    HRESULT hr = pSwapChain->Present( 1, 0 );
+    if ( FAILED( hr ) ) throw std::runtime_error( "Failed to present swap chain" );
 }
 
-void InstancedRendererEngine2D::OnResize( int newWidth, int newHeight )
+void InstancedRendererEngine2D::OnResize(const int width, const int height )
 {
     pDeviceContext->OMSetRenderTargets( 0, nullptr, nullptr );
     renderTargetView.Reset();
     backBuffer.Reset();
 
-    pSwapChain->ResizeBuffers( 0, newWidth, newHeight, DXGI_FORMAT_UNKNOWN, 0 );
+    HRESULT hr = pSwapChain->ResizeBuffers( 0, width, height, DXGI_FORMAT_UNKNOWN, 0 );
+    if ( FAILED( hr ) ) throw std::runtime_error( "Failed to resize buffers" );
 
-    screenWidth  = newWidth;
-    screenHeight = newHeight;
+    screenWidth  = width;
+    screenHeight = height;
 
-    HRESULT hr = S_OK;
     InitRenderBufferAndTargetView( hr );
 
     if ( FAILED( hr ) )
         return;
 
-    SetupViewport( newWidth, newHeight );
+    SetupViewport( width, height );
 }
 
 void InstancedRendererEngine2D::OnShutdown()
@@ -198,13 +199,13 @@ void InstancedRendererEngine2D::OnShutdown()
     }
 }
 
-void InstancedRendererEngine2D::SetupViewport( UINT newWidth, UINT newHeight )
+void InstancedRendererEngine2D::SetupViewport(const UINT width, const UINT height )
 {
     // Set up the viewport
     D3D11_VIEWPORT vp = {};
 
-    vp.Width    = static_cast<FLOAT>(newWidth);
-    vp.Height   = static_cast<FLOAT>(newHeight);
+    vp.Width    = static_cast<FLOAT>(width);
+    vp.Height   = static_cast<FLOAT>(height);
     vp.MinDepth = 0.0f;
     vp.MaxDepth = 1.0f;
     vp.TopLeftX = 0;
@@ -213,10 +214,10 @@ void InstancedRendererEngine2D::SetupViewport( UINT newWidth, UINT newHeight )
     pDeviceContext->RSSetViewports( 1, &vp );
 
     // Used for correcting triangles to their original shape and ignoring the aspect ratio of the viewport
-    aspectRatioX = ( newHeight > 0 ) ? static_cast<float>(newWidth) / static_cast<float>(newHeight) : 1.0f;
+    aspectRatioX = ( height > 0 ) ? static_cast<float>(width) / static_cast<float>(height) : 1.0f;
 }
 
-Vector2D InstancedRendererEngine2D::ScreenToWorld( int x, int y ) const
+Vector2D InstancedRendererEngine2D::ScreenToWorld(const int x, const int y ) const
 {
     if ( screenWidth == 0 || screenHeight == 0 )
         return { cameraPosition.x, cameraPosition.y };
@@ -486,7 +487,7 @@ void InstancedRendererEngine2D::UploadInstanceBuffer( const std::vector<Instance
     pDeviceContext->CopyResource( instanceBuffer.Get(), computeBufferB.Get() );
 }
 
-void InstancedRendererEngine2D::UploadInstanceSlot( int slot, const InstanceData& data ) const
+void InstancedRendererEngine2D::UploadInstanceSlot(const int slot, const InstanceData& data ) const
 {
     if ( !pDeviceContext || !computeBufferA || !computeBufferB || !instanceBuffer )
         return;
@@ -788,7 +789,7 @@ void InstancedRendererEngine2D::RenderUI()
     }
 }
 
-void InstancedRendererEngine2D::ProcessEvent( UINT msg, WPARAM wParam, LPARAM lParam )
+void InstancedRendererEngine2D::ProcessEvent(const UINT msg, const WPARAM wParam, const LPARAM lParam )
 {
 
     if ( imgui )
