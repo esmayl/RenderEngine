@@ -1,16 +1,16 @@
 #pragma once
 
+#include "Objects/SquareMesh.h"
+#include "Objects/TriangleMesh.h"
+#include "Game/AntGame.h"
 #include "BaseRenderer.h"
 #include "ImGuiRenderer.h"
 #include "InstanceData.h"
-#include "Objects/SquareMesh.h"
-#include "Objects/TriangleMesh.h"
 #include "Vector2D.h"
 #include "VertexInputData.h"
 #include "Utilities.h"
 #include "Button.h"
 
-#include <Windows.h>
 #include <algorithm>
 #include <Windowsx.h> // Required for GET_X_LPARAM and GET_Y_LPARAM
 #include <array>
@@ -21,6 +21,7 @@
 #include <vector>
 #include <wrl/client.h>
 
+
 // (Plain ImGui optional) No backends used
 
 #pragma comment( lib, "d3d11.lib" )
@@ -28,10 +29,6 @@
 #pragma comment( lib, "d3dcompiler.lib" )
 #pragma comment( lib, "user32.lib" )
 
-namespace Game
-{
-    class AntGame;
-}
 
 class InstancedRendererEngine2D : public BaseRenderer
 {
