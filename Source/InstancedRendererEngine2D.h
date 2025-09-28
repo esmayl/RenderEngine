@@ -22,8 +22,6 @@
 #include <wrl/client.h>
 
 
-// (Plain ImGui optional) No backends used
-
 #pragma comment( lib, "d3d11.lib" )
 #pragma comment( lib, "dxgi.lib" )
 #pragma comment( lib, "d3dcompiler.lib" )
