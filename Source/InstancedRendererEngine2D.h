@@ -1,43 +1,37 @@
 #pragma once
 
-#include <Windows.h>
-#include <Windowsx.h> // Required for GET_X_LPARAM and GET_Y_LPARAM
-#include <cmath>
-#include <cstdio>
-#include <string>
-#include <algorithm>
-#include <array>
-#include <chrono>
-#include <cmath>
-#include <cstdint>
-#include <d3d11.h>
-#include <d3dcompiler.h> // Needed for compiling shaders
-#include <deque>
-#include <dxgi.h>
-#include <memory>
-#include <vector>
-#include <wrl/client.h>
-#include "imgui.h"
-
-#include "Button.h"
-#include "UIPanelCB.h"
 #include "BaseRenderer.h"
-#include "Block2D.h"
+#include "Button.h"
 #include "FoodNode.h"
 #include "GameEnums.h"
 #include "Hazard.h"
 #include "ImGuiRenderer.h"
 #include "InstanceData.h"
+#include "Objects/PartyParticle.h"
 #include "Objects/SquareMesh.h"
 #include "Objects/TriangleMesh.h"
-#include "Objects/PartyParticle.h"
-#include "Rendering/DrawHelpers.h"
-#include "Rendering/QuadRenderer2D.h"
-#include "Rendering/RenderStates.h"
 #include "Utilities.h"
 #include "Vector2D.h"
 #include "Vertex.h"
 #include "VertexInputData.h"
+#include "imgui.h"
+
+#include <Windows.h>
+#include <Windowsx.h> // Required for GET_X_LPARAM and GET_Y_LPARAM
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <cstdio>
+#include <d3d11.h>
+#include <d3dcompiler.h> // Needed for compiling shaders
+#include <deque>
+#include <dxgi.h>
+#include <memory>
+#include <string>
+#include <vector>
+#include <wrl/client.h>
 
 // (Plain ImGui optional) No backends used
 
@@ -45,6 +39,11 @@
 #pragma comment( lib, "dxgi.lib" )
 #pragma comment( lib, "d3dcompiler.lib" )
 #pragma comment( lib, "user32.lib" )
+
+namespace Game
+{
+    class AntGame;
+}
 
 class InstancedRendererEngine2D : public BaseRenderer
 {
@@ -59,58 +58,35 @@ class InstancedRendererEngine2D : public BaseRenderer
 
     void OnShutdown() override;
 
-    void RenderWavingGrid( int gridWidth, int gridHeight, bool attachToCamera );
-
-    void RenderFlock( int instanceCount );
-
-    void RenderHud();
-
-    void RenderUI();
-    void RenderProminentStatus();
-    void RenderEventBanner();
-    void RenderTopLeftStats();
-    void RenderStageClearOverlay();
-    void RenderGameOverOverlay();
-
-    void ResetAnts();
-
     void ProcessEvent( UINT msg, WPARAM wParam, LPARAM lParam );
 
-    void RenderFoodMarkers();
+    void SetGame( Game::AntGame* game );
 
-    void RenderFoodLabels();
+    double GetDeltaTime() const
+    {
+        return deltaTime;
+    }
+    double GetTotalTime() const
+    {
+        return totalTime;
+    }
+    int GetScreenWidth() const
+    {
+        return static_cast<int>( screenWidth );
+    }
+    int GetScreenHeight() const
+    {
+        return static_cast<int>( screenHeight );
+    }
 
-    int GetActiveFoodIndex() const;
+    void InitializeSimulationBuffers( const std::vector<InstanceData>& instances );
+    void UploadInstanceBuffer( const std::vector<InstanceData>& instances );
+    void UploadInstanceSlot( int slot, const InstanceData& data ) const;
+    void ResizeInstanceStorage( const std::vector<InstanceData>& instances );
 
-    void SetFlockTarget( int x, int y );
-
-    void SetFood( int x, int y, float amount );
-
-    void SetNest( int x, int y );
-
-    void UpdateGame( double dt );
-
-    // Food system
-    void SpawnRandomFood( int count );
-
-    void SpawnFoodAtScreen( int x, int y, float amount );
-
-    int FindNearestFoodScreen( int x, int y, float maxPixelRadius ) const;
-
-    void SetActiveFoodByIndex( int index );
-
-    // Stages & flow
-    void ResetGame();
-
-    void StartStage( int number );
-
-    void AdvanceStage();
-
-    void ApplyUpgrade( int option );
-
-    void ToggleEndless( bool enabled );
-
-    void RebuildDepartureStagger();
+    Vector2D ScreenToWorld( int x, int y ) const;
+    Vector2D WorldToScreen( const Vector2D& world ) const;
+    Vector2D WorldToView( const Vector2D& world ) const;
 
   private:
     std::chrono::time_point<std::chrono::steady_clock> startTime;
@@ -143,10 +119,7 @@ class InstancedRendererEngine2D : public BaseRenderer
     Microsoft::WRL::ComPtr<ID3D11InputLayout> pInputLayout;          // Used to define input variables for the shaders
     Microsoft::WRL::ComPtr<ID3D11InputLayout> flockInputLayout;      // Used to define input variables for the shaders
     Microsoft::WRL::ComPtr<ID3D11RasterizerState> scissorRasterizer; // For rain overlay clipping
-    // Common reusable D3D states
-    std::unique_ptr<RenderStates> _states;
 
-    std::vector<InstanceData> instances;
     Microsoft::WRL::ComPtr<ID3D11Buffer> instanceBuffer;
 
     // Compute shader buffers
@@ -186,129 +159,28 @@ class InstancedRendererEngine2D : public BaseRenderer
 
     void CreateMeshes();
 
-    void CreateBuffers();
+    void CreateBuffers( const std::vector<InstanceData>& instances );
 
-    void RunComputeShader( ID3D11Buffer* buffer, VertexInputData& cbData, int instanceCount,
-                           ID3D11ComputeShader* computeShader );
+    void RunComputeShader( ID3D11Buffer* buffer, VertexInputData& cbData, int instanceCount, ID3D11ComputeShader* computeShader );
 
     void SetupViewport( UINT width, UINT height );
 
-    Vector2D ScreenToWorld( int x, int y ) const;
-    Vector2D WorldToScreen( const Vector2D& world ) const;
-    Vector2D WorldToView( const Vector2D& world ) const;
-
     void InitRenderBufferAndTargetView( HRESULT& hr );
 
-    void SetupVerticesAndShaders( UINT& stride, UINT& offset, UINT bufferCount, Mesh* mesh,
-                                  ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader );
+    void SetupVerticesAndShaders( const UINT& stride, const UINT& offset, const Mesh* mesh, ID3D11VertexShader* vertexShader, ID3D11PixelShader* pixelShader ) const;
 
-    void PassInputDataAndRunInstanced( ID3D11Buffer* pConstantBuffer, VertexInputData& cbData, Mesh& mesh,
-                                       int instanceCount );
+    void PassInputDataAndRunInstanced( ID3D11Buffer* pConstantBuffer, VertexInputData& cbData, Mesh& mesh, int instanceCount ) const;
+    void RenderUI();
 
-    void RenderMarker( const Vector2D& ndcPos, float size, int colorCode );
+    void RenderProminentStatus();
 
-    void RenderRectTL( const Vector2D& ndcTopLeft, float sizeX, float sizeY, int colorCode, int lightenLevel );
+    void RenderStageClearOverlay();
 
-    void RenderMarkerWithMesh( Mesh* mesh, const Vector2D& ndcTopLeft, float sizeX, float sizeY, int colorCode,
-                               int lightenLevel = 0 );
+    void RenderOverlay(const char* overlayTitle, const char* overlaySubtitle);
 
-    void RenderPanel( const Vector2D& ndcCenter, float sizeX, float sizeY, int colorCode );
+    int GetActiveFoodIndex() const;
 
-    void RenderUIPanel( int x, int y, int width, int height, float r, float g, float b, float a );
+    Game::AntGame* game_ = nullptr;
 
-    void RenderRainOverlay();
-
-    // Fun elements
-    void OnKeyUp( WPARAM vk );
-    void UpdateParty( double dt );
-    void RenderPartyOverlay();
-    void TriggerConfettiBurst( int x, int y, int count );
-
-    // Ants-themed extras
-    void RenderPheromonePath();
-    void SpawnBonusSugarAtScreen( int x, int y, float amount, float mult, float decay );
-
-    Vector2D flockTarget;
-    Vector2D previousFlockTarget;
-    double flockTransitionTime;
-    double flockFrozenTime;
-
-    // Game state
-    Vector2D nestPos{ 0.0f, 0.0f };
-    std::vector<FoodNode> foodNodes;
-    int activeFoodIndex     = -1;
-    float minFoodSpacing    = 0.12f; // NDC units, keep nodes separated
-    float defaultFoodAmount = 100.0f;
-    int depositingFoodIndex = -1;
-    int maxAnts             = 512;
-    int activeAnts          = 64;
-    double spawnAccumulator = 0.0;
-    float antsPerSecond     = 32.0f;
-    int score               = 0;
-    float antSpeed          = 0.5f;  // must match cbData.speed
-    float initialSpeed      = 0.5f;  // from settings.ini
-    float followDistance    = 0.05f; // must match compute shader
-    double legElapsed       = 0.0;
-    double travelTime       = 0.0;
-    float scoreCarryAccum   = 0.0f;
-    AntMode mode            = AntMode::Idle;
-
-    // Spawning queue: delay new ants before activation
-    std::deque<double> pendingSpawns;
-
-    // Settings
-    int initialAnts      = 10;
-    double spawnDelaySec = 0.1;
-    bool enableSugar     = true;
-    bool enableHazard    = true;
-
-    void LoadSettings();
-
-    // Stage system
-    GameState gameState     = GameState::Playing;
-    int stage               = 1;
-    double stageTimeLeft    = 60.0;
-    int stageTarget         = 200; // food units to collect this stage
-    int stageScore          = 0;   // collected this stage
-    int combo               = 1;   // deposit combo multiplier
-    double sinceLastDeposit = 9999.0;
-    bool endlessMode        = false;
-    bool upgradePending     = false;
-
-    // Random slow event (e.g., rain)
-    bool slowActive      = false;
-    double slowTimeLeft  = 0.0;
-    double slowCooldown  = 8.0;
-    double slowSinceLast = 0.0;
-
-    // Hazard (repellent) — inactive and stationary until user places it
-    Hazard hazard{ { 0.0f, 0.0f }, { 0.0f, 0.0f }, 0.04f, false };
-    double hazardTimeLeft  = 0.0;  // seconds remaining when active
-    double hazardDuration  = 5.0;  // duration for random hazard
-    double hazardSinceLast = 0.0;  // time since last random hazard
-    double hazardCooldown  = 12.0; // seconds between random hazards
-
-    // ImGui wrapper
     std::unique_ptr<ImGuiRenderer> imgui;
-
-
-    std::vector<PartyParticle> partyParticles;
-    bool partyMode           = false;
-    bool stageClearBurstDone = false;
-    int konamiIndex          = 0;
-
-    // --- Ants attacks gameplay ---
-    bool frenzyActive      = false;
-    double frenzyTimeLeft  = 0.0;
-    double frenzyCooldown  = 12.0;
-    double frenzySinceLast = frenzyCooldown;
-    // Debug staging toggles
-    bool antsEnabled  = true;  // start staged: enable after markers are validated
-    bool showDebugHud = false; // closable debug HUD window (F1/H)
-
-    // Placement disabled; random events only
-
-    // Bonus sugar spawner
-    double bonusSpawnSince    = 0.0;
-    double bonusSpawnInterval = 10.0; // seconds between random sugar spawns
 };

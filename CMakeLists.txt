@@ -10,8 +10,6 @@ file(GLOB_RECURSE SOURCE_FILES CONFIGURE_DEPENDS "Source/*.cpp" "Source/*.h")
 add_executable(RenderEngine WIN32 ${SOURCE_FILES}
         Source/Button.cpp
         Source/Button.h
-        Source/UIPanelCB.cpp
-        Source/UIPanelCB.h
         Source/Objects/PartyParticle.h)
 
 # --- Dependencies ---
@@ -97,38 +95,12 @@ add_custom_command(TARGET RenderEngine POST_BUILD
         "$<TARGET_FILE_DIR:RenderEngine>"
         COMMENT "Copying fonts to output directory")
 
-# --- Tests ---
-include(CTest)
-if (BUILD_TESTING)
-    enable_testing()
-
-    find_package(GTest CONFIG REQUIRED)
-
-    add_executable(RenderEngineTests
-            tests/RandomGeneratorTests.cpp
-            Source/RandomGenerator.cpp)
-
-    target_include_directories(RenderEngineTests PRIVATE
-            "${CMAKE_CURRENT_SOURCE_DIR}/Source")
-
-    target_compile_definitions(RenderEngineTests PRIVATE
-            UNICODE
-            _UNICODE)
-
-    target_link_libraries(RenderEngineTests PRIVATE
-            GTest::gtest
-            GTest::gtest_main)
-
-    include(GoogleTest)
-    gtest_discover_tests(RenderEngineTests)
-endif ()
-
 # --- Format target ---
 file(GLOB_RECURSE FORMAT_FILES CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.h"
         "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.hpp"
         "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.cpp"
-        "${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp")
+        )
 
 add_custom_target(format
         COMMAND clang-format -i ${FORMAT_FILES}

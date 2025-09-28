@@ -75,7 +75,10 @@ LRESULT Application::windowProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
     case WM_CREATE:
         try
         {
+            game_ = std::make_unique<Game::AntGame>( renderer_ );
+            renderer_.SetGame( game_.get() );
             renderer_.Init( hwnd, blockWidth_, blockHeight_ );
+            game_->initialize();
         }
         catch ( const std::exception& ex )
         {
@@ -92,6 +95,7 @@ LRESULT Application::windowProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         return 0;
     case WM_DESTROY:
         renderer_.OnShutdown();
+        game_.reset();
         PostQuitMessage( 0 );
         return 0;
     case WM_SIZE:
@@ -101,6 +105,10 @@ LRESULT Application::windowProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
         try
         {
             renderer_.OnResize( static_cast<int>( width ), static_cast<int>( height ) );
+            if ( game_ )
+            {
+                game_->onResize( static_cast<int>( width ), static_cast<int>( height ) );
+            }
         }
         catch ( const std::exception& ex )
         {
@@ -113,59 +121,6 @@ LRESULT Application::windowProc( HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPar
             MessageBoxA( hwnd, "Unknown resize error", "Resize Error", MB_ICONERROR | MB_OK );
             renderer_.OnShutdown();
             PostQuitMessage( 1 );
-        }
-        return 0;
-    }
-    case WM_LBUTTONUP:
-    {
-        const int x   = GET_X_LPARAM( lParam );
-        const int y   = GET_Y_LPARAM( lParam );
-        const int idx = renderer_.FindNearestFoodScreen( x, y, 24.0f );
-        if ( idx >= 0 )
-        {
-            if ( idx == renderer_.GetActiveFoodIndex() )
-            {
-                renderer_.SetActiveFoodByIndex( -1 );
-            }
-            else
-            {
-                renderer_.SetActiveFoodByIndex( idx );
-            }
-        }
-        return 0;
-    }
-    case WM_KEYUP:
-    {
-        if ( wParam == 'R' )
-        {
-            renderer_.ResetGame();
-            renderer_.StartStage( 1 );
-            return 0;
-        }
-        if ( wParam == 'N' )
-        {
-            renderer_.AdvanceStage();
-            return 0;
-        }
-        if ( wParam == 'E' )
-        {
-            renderer_.ToggleEndless( true );
-            return 0;
-        }
-        if ( wParam == '1' || wParam == VK_NUMPAD1 )
-        {
-            renderer_.ApplyUpgrade( 1 );
-            return 0;
-        }
-        if ( wParam == '2' || wParam == VK_NUMPAD2 )
-        {
-            renderer_.ApplyUpgrade( 2 );
-            return 0;
-        }
-        if ( wParam == '3' || wParam == VK_NUMPAD3 )
-        {
-            renderer_.ApplyUpgrade( 3 );
-            return 0;
         }
         return 0;
     }

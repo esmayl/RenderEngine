@@ -1,6 +1,4 @@
 #pragma once
-#include "Block2D.h"
-#include "RandomGenerator.h"
 
 #include <Windows.h>
 #include <d3d11.h>
@@ -16,7 +14,6 @@
 class Utilities
 {
   public:
-    static std::vector<Block2D> CreateBlocks( int totalWidth, int totalHeight, int columns, int rows );
     static void CustomDrawText( HDC buffer, const wchar_t textToDraw[] );
     static std::vector<char> ReadShaderBinary( const wchar_t* filePath );
     static bool CreateVertexShader( ID3D11Device* device, HRESULT& hr, const wchar_t* vsFilePath,

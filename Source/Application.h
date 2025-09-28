@@ -1,7 +1,9 @@
 #pragma once
 
+#include "Game/AntGame.h"
 #include "InstancedRendererEngine2D.h"
 
+#include <memory>
 #include <mmsystem.h>
 #include <windows.h>
 
@@ -30,4 +32,5 @@ class Application
     int blockWidth_  = 1;
     int blockHeight_ = 1;
     InstancedRendererEngine2D renderer_;
+    std::unique_ptr<Game::AntGame> game_;
 };
